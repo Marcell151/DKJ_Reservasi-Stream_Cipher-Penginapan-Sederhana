@@ -15,6 +15,7 @@ ini_set('display_errors', 1);
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
+ob_start(); // Enable output buffering to prevent header errors
 
 // Global Helpers
 function redirect($path) {
