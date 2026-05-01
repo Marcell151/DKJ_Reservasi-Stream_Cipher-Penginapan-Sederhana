@@ -80,6 +80,11 @@ function is_active($p, $current) {
                         <i data-lucide="zap" class="w-5 h-5"></i> Demo Enkripsi
                     </a>
                 </li>
+                <li>
+                    <a href="?page=audit_db" class="<?= is_active('audit_db', $page) ?>">
+                        <i data-lucide="database" class="w-5 h-5 text-indigo-300"></i> Audit Database
+                    </a>
+                </li>
                 <li class="mt-auto absolute bottom-8 left-6 right-6">
                     <a href="?page=logout" class="text-red-300 hover:bg-red-500/20 hover:text-red-200">
                         <i data-lucide="log-out" class="w-5 h-5"></i> Keluar
@@ -100,7 +105,8 @@ function is_active($p, $current) {
                             'reservations' => 'Reservasi',
                             'payments' => 'Pembayaran',
                             'reports' => 'Laporan',
-                            'demo' => 'Demo ChaCha20'
+                            'demo' => 'Demo ChaCha20',
+                            'audit_db' => 'Audit Database SQLite'
                         ];
                         echo $titles[$page] ?? 'Dashboard';
                         ?>

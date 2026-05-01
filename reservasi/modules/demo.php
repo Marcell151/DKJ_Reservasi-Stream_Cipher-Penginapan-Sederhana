@@ -101,6 +101,34 @@ $key = SecurityHelper::generateKey();
         <div class="p-4 bg-white/5 rounded-2xl border border-white/10">
             <div class="text-[10px] font-bold text-gray-400 uppercase mb-2">Nonce Handling</div>
             <div class="text-xs text-gray-300">16-byte random IV appended to payload.</div>
+         </div>
+
+         <!-- NEW: Hybrid Source Panel -->
+         <div class="p-4 bg-white/5 rounded-2xl border border-white/10 md:col-span-3">
+            <div class="text-[10px] font-bold text-gray-400 uppercase mb-3 flex items-center gap-2 border-b border-white/10 pb-2">
+                <i data-lucide="network" class="w-3 h-3 text-indigo-400"></i> Hybrid Key Derivation Source (Network & Device Binding)
+            </div>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div class="text-xs">
+                    <span class="text-gray-500 block text-[9px] uppercase">IP Server:</span>
+                    <span class="font-mono text-indigo-300"><?= $GLOBALS['ip_server'] ?? 'N/A' ?></span>
+                </div>
+                <div class="text-xs">
+                    <span class="text-gray-500 block text-[9px] uppercase">Hostname:</span>
+                    <span class="font-mono text-indigo-300"><?= $GLOBALS['device_sig'] ?? 'N/A' ?></span>
+                </div>
+                <div class="text-xs overflow-hidden">
+                    <span class="text-gray-500 block text-[9px] uppercase">User Agent:</span>
+                    <span class="font-mono text-indigo-300 truncate block" title="<?= htmlspecialchars($GLOBALS['user_agent'] ?? '') ?>"><?= substr(htmlspecialchars($GLOBALS['user_agent'] ?? 'CLI'), 0, 15) ?>...</span>
+                </div>
+                 <div class="text-xs">
+                    <span class="text-gray-500 block text-[9px] uppercase">Master Secret:</span>
+                    <span class="font-mono text-indigo-300">dkj_reservasi_***</span>
+                </div>
+            </div>
+            <div class="mt-3 text-[9px] text-gray-500 italic">
+                *Key di-generate otomatis dari hash SHA-256 kombinasi 4 faktor di atas.
+            </div>
         </div>
     </div>
 
