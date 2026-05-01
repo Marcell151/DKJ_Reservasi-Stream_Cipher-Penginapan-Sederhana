@@ -43,13 +43,13 @@ function is_active($p, $current) {
                         <i data-lucide="shield-check" class="w-6 h-6 text-white"></i>
                     </div>
                     <div class="flex flex-col">
-                        <span class="text-lg leading-tight">Sistem Rental</span>
-                        <span class="text-xs font-normal text-white/50">Kendaraan Sederhana</span>
+                        <span class="text-lg font-bold leading-tight tracking-tight">DKJ RENTAL</span>
+                        <span class="text-[9px] font-bold text-emerald-400 uppercase tracking-widest bg-emerald-500/10 px-2 py-0.5 rounded mt-1">ChaCha20 Secured</span>
                     </div>
                 </div>
             </div>
             
-            <ul class="sidebar-menu">
+            <ul class="sidebar-menu flex-1 overflow-y-auto">
                 <li>
                     <a href="?page=stats" class="<?= is_active('stats', $page) ?>">
                         <i data-lucide="layout-dashboard" class="w-5 h-5"></i> Dashboard
@@ -85,22 +85,27 @@ function is_active($p, $current) {
                         <i data-lucide="file-bar-chart" class="w-5 h-5"></i> Laporan
                     </a>
                 </li>
-                <li class="mt-8 pt-8 border-t border-white/10">
-                    <a href="?page=demo" class="<?= is_active('demo', $page) ?>">
-                        <i data-lucide="zap" class="w-5 h-5"></i> Demo Enkripsi
-                    </a>
-                </li>
-                <li>
-                    <a href="?page=audit_db" class="<?= is_active('audit_db', $page) ?>">
-                        <i data-lucide="database" class="w-5 h-5 text-indigo-300"></i> Audit Database
-                    </a>
-                </li>
-                <li class="mt-auto absolute bottom-8 left-6 right-6">
-                    <a href="?page=logout" class="text-red-300 hover:bg-red-500/20 hover:text-red-200">
-                        <i data-lucide="log-out" class="w-5 h-5"></i> Keluar
-                    </a>
-                </li>
             </ul>
+
+            <div class="mt-auto pt-4 border-t border-white/10">
+                <ul class="sidebar-menu">
+                    <li>
+                        <a href="?page=demo" class="<?= is_active('demo', $page) ?>">
+                            <i data-lucide="zap" class="w-5 h-5"></i> Demo Enkripsi
+                        </a>
+                    </li>
+                    <li>
+                        <a href="?page=audit_db" class="<?= is_active('audit_db', $page) ?>">
+                            <i data-lucide="database" class="w-5 h-5 text-indigo-300"></i> Audit Database
+                        </a>
+                    </li>
+                    <li class="mt-4">
+                        <a href="?page=logout" class="text-red-300 hover:bg-red-500/20 hover:text-red-200">
+                            <i data-lucide="log-out" class="w-5 h-5"></i> Keluar
+                        </a>
+                    </li>
+                </ul>
+            </div>
         </aside>
 
         <!-- Main -->

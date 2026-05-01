@@ -14,7 +14,9 @@ try {
     $customers = [
         ['Budi Santoso', '081234567890', 'budi@gmail.com', 'Jl. Merdeka No. 10', 'KTP-123456789'],
         ['Siti Nurhaliza', '085678901234', 'siti@yahoo.com', 'Jl. Melati No. 5', 'KTP-987654321'],
-        ['Ahmad Rahman', '087712345678', 'ahmad@outlook.com', 'Jl. Anggrek No. 2', 'KTP-456789123']
+        ['Ahmad Rahman', '087712345678', 'ahmad@outlook.com', 'Jl. Anggrek No. 2', 'KTP-456789123'],
+        ['Jessica Miller', '082233445566', 'jessica@global.com', 'Apartemen Sudirman Park', 'PASSPORT-A1234567'],
+        ['Andi Wijaya', '081399887766', 'andi.w@tech.id', 'Jl. Kebon Jeruk No. 12', 'KTP-321654987']
     ];
 
     $stmt_cust = $db->prepare("INSERT INTO customers (nama_pelanggan, nomor_hp, email, alamat, nomor_identitas) VALUES (?, ?, ?, ?, ?)");
@@ -35,7 +37,9 @@ try {
     $rentals = [
         [$customer_ids[0], $vehicles[0], '2026-04-25', '2026-04-27', 2, '500000', 'KTP dan Motor Vario ditinggal'],
         [$customer_ids[1], $vehicles[1], '2026-04-26', '2026-04-28', 2, '500000', 'KK asli'],
-        [$customer_ids[2], $vehicles[2], '2026-04-27', '2026-04-30', 3, '1000000', 'Passport']
+        [$customer_ids[2], $vehicles[2], '2026-04-27', '2026-04-30', 3, '1000000', 'Passport'],
+        [$customer_ids[3], $vehicles[3], '2026-05-01', '2026-05-02', 1, '2000000', 'Jaminan Deposit Cash'],
+        [$customer_ids[4], $vehicles[4], '2026-05-02', '2026-05-05', 3, '1500000', 'Fotokopi STNK Motor Pribadi']
     ];
 
     $stmt_rent = $db->prepare("INSERT INTO rentals (pelanggan_id, kendaraan_id, tanggal_sewa, tanggal_kembali, durasi, deposit, catatan_jaminan, status) VALUES (?, ?, ?, ?, ?, ?, ?, 'berjalan')");
@@ -50,13 +54,14 @@ try {
         $res_id = $db->lastInsertId();
         
         // 4. Dummy Payments for some
-        if ($index !== 2) { // Third rental not yet paid
-            $amount = $index === 0 ? '200000' : '300000';
-            $p_stmt = $db->prepare("INSERT INTO payments (transaksi_id, nominal_pembayaran, metode, status, payment_date) VALUES (?, ?, ?, 'lunas', DATETIME('now'))");
+        if ($index !== 2 && $index !== 4) { // Some rentals not yet paid
+            $amount = $index === 0 ? '200000' : ($index === 1 ? '300000' : '300000');
+            $p_stmt = $db->prepare("INSERT INTO payments (transaksi_id, nominal_pembayaran, metode, status, payment_date) VALUES (?, ?, ?, 'lunas', DATETIME('now', '-$index days'))");
+            $methods = ['Transfer BCA', 'Transfer Mandiri', 'QRIS', 'Cash'];
             $p_stmt->execute([
                 $res_id, 
                 SecurityHelper::encrypt($amount), 
-                'Transfer BCA'
+                $methods[$index] ?? 'Cash'
             ]);
         }
     }

@@ -4,18 +4,15 @@ define('DB_PATH', __DIR__ . '/../database/rental.sqlite');
 define('MASTER_SECRET', 'dkj_rental_secure_2024_top_secret'); 
 
 // --- HYBRID KEY GENERATION COMPONENTS ---
-// 1. Network Component (IP Server)
-$ip_server = $_SERVER['SERVER_ADDR'] ?? gethostbyname(gethostname()) ?? '127.0.0.1';
+// 1. Network Component (Consistent Local/Server IP)
+$ip_server = $_SERVER['SERVER_ADDR'] ?? '127.0.0.1';
 if ($ip_server === '::1') $ip_server = '127.0.0.1';
 
 // 2. Device Component (Hostname)
 $device_sig = gethostname() ?: 'Unknown-Device';
 
-// 3. Browser/Environment Component
-$user_agent = $_SERVER['HTTP_USER_AGENT'] ?? 'CLI-Environment';
-
-// 4. Combined Hybrid Seed
-$combined_seed_raw = $ip_server . "|" . $device_sig . "|" . $user_agent . "|" . MASTER_SECRET;
+// 3. Combined Hybrid Seed (Stable across CLI & Web)
+$combined_seed_raw = $ip_server . "|" . $device_sig . "|" . MASTER_SECRET;
 define('SERVER_SEED', hash('sha256', $combined_seed_raw)); 
 
 // Error Reporting (Development)

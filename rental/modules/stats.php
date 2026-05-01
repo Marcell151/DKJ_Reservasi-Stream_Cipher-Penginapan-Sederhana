@@ -120,16 +120,25 @@ $encrypted_fields_count = ($total_customers * 4) + ($total_rentals * 2) + $total
                     <div class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></div>
                 </div>
                 <div class="text-lg font-bold">ChaCha20</div>
+                <div class="text-[9px] text-emerald-300 font-mono mt-1 opacity-80">Stream Cipher Secured</div>
             </div>
 
             <div class="bg-white/10 rounded-2xl p-4 backdrop-blur-sm border border-white/10">
-                <span class="text-xs font-medium text-indigo-200 block mb-2">Key Source: Network Components</span>
-                <div class="space-y-2 opacity-80">
-                    <div class="flex items-center gap-2 text-[10px]">
-                        <i data-lucide="globe" class="w-3 h-3"></i> IPv4 Address
+                <span class="text-xs font-medium text-indigo-200 block mb-3 border-b border-white/5 pb-2">Network-Locked Key</span>
+                <div class="space-y-3">
+                    <div class="flex items-center justify-between text-[10px]">
+                        <span class="text-gray-400 uppercase">IP Server:</span>
+                        <span class="font-mono text-indigo-200"><?= $GLOBALS['ip_server'] ?></span>
                     </div>
-                    <div class="flex items-center gap-2 text-[10px]">
-                        <i data-lucide="monitor" class="w-3 h-3"></i> User Agent Hash
+                    <div class="flex items-center justify-between text-[10px]">
+                        <span class="text-gray-400 uppercase">Hostname:</span>
+                        <span class="font-mono text-indigo-200"><?= $GLOBALS['device_sig'] ?></span>
+                    </div>
+                    <div class="flex items-center justify-between text-[10px]">
+                        <span class="text-gray-400 uppercase">Status:</span>
+                        <span class="flex items-center gap-1 text-emerald-400 font-bold">
+                            <i data-lucide="shield-check" class="w-3 h-3"></i> BINDED
+                        </span>
                     </div>
                 </div>
             </div>

@@ -5,6 +5,15 @@ require_once __DIR__ . '/../helpers/security_helper.php';
 try {
     $db = new PDO("sqlite:" . DB_PATH);
     $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    $db->exec("PRAGMA foreign_keys = OFF");
+
+    // 0. Drop Existing Tables for Clean Rebuild
+    $db->exec("DROP TABLE IF EXISTS payments");
+    $db->exec("DROP TABLE IF EXISTS reservations");
+    $db->exec("DROP TABLE IF EXISTS rooms");
+    $db->exec("DROP TABLE IF EXISTS users");
+    
+    $db->exec("PRAGMA foreign_keys = ON");
 
     // 1. Create Users Table
     $db->exec("CREATE TABLE IF NOT EXISTS users (

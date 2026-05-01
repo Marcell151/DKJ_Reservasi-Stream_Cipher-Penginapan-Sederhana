@@ -61,19 +61,19 @@ $payments = $db->query("SELECT p.*, r.customer_name
                             $dec_amount = SecurityHelper::decrypt($p['amount']);
                             $fmt_amount = "Rp " . (is_numeric($dec_amount) ? number_format((float)$dec_amount, 0, ',', '.') : '0');
                         ?>
-                        <div class="flex items-center gap-3">
-                            <div class="bg-gray-50 px-3 py-2 rounded-lg border border-gray-100 min-w-[140px]">
-                                <!-- Ciphertext (Default) -->
-                                <span id="enc-<?= $p['id'] ?>" class="font-mono text-[9px] text-red-400 break-all leading-tight">
-                                    <?= substr($p['amount'], 0, 18) ?>...
-                                </span>
+                        <div class="flex flex-col gap-1">
+                            <div class="bg-gray-50 px-3 py-2 rounded-lg border border-gray-100 min-w-[200px]">
+                                <!-- Ciphertext (Full) -->
+                                <div id="enc-<?= $p['id'] ?>" class="font-mono text-[9px] text-red-500 break-all leading-tight select-all cursor-pointer" title="Klik untuk pilih semua">
+                                    <?= $p['amount'] ?>
+                                </div>
                                 <!-- Plaintext (Hidden) -->
-                                <span id="dec-<?= $p['id'] ?>" class="hidden font-bold text-emerald-600 text-sm">
+                                <div id="dec-<?= $p['id'] ?>" class="hidden font-bold text-emerald-600 text-sm">
                                     <?= $fmt_amount ?>
-                                </span>
+                                </div>
                             </div>
-                            <button onclick="toggleNominal(<?= $p['id'] ?>)" class="p-2 hover:bg-indigo-50 rounded-full transition-colors text-gray-400 hover:text-indigo-600" title="Klik untuk lihat data asli">
-                                <i id="icon-<?= $p['id'] ?>" data-lucide="eye" class="w-4 h-4"></i>
+                            <button onclick="toggleNominal(<?= $p['id'] ?>)" class="text-[9px] font-bold text-indigo-500 hover:text-indigo-700 flex items-center gap-1 transition-all">
+                                <i id="icon-<?= $p['id'] ?>" data-lucide="eye" class="w-3 h-3"></i> Toggle Plaintext
                             </button>
                         </div>
                     </td>

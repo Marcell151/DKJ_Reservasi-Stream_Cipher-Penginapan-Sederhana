@@ -14,12 +14,14 @@ try {
     $reservations = [
         ['Budi Santoso', '081234567890', 'budi@gmail.com', 'Jl. Merdeka No. 10', '2026-04-25', '2026-04-27', 'Bawa selimut extra', $rooms[0]],
         ['Siti Nurhaliza', '085678901234', 'siti@yahoo.com', 'Jl. Melati No. 5', '2026-04-26', '2026-04-28', '-', $rooms[1]],
-        ['Ahmad Rahman', '087712345678', 'ahmad@outlook.com', 'Jl. Anggrek No. 2', '2026-04-27', '2026-04-30', 'Kamar non-smoking', $rooms[2]]
+        ['Ahmad Rahman', '087712345678', 'ahmad@outlook.com', 'Jl. Anggrek No. 2', '2026-04-27', '2026-04-30', 'Kamar non-smoking', $rooms[2]],
+        ['Dewi Lestari', '081122334455', 'dewi.l@gmail.com', 'Jl. Thamrin No. 8', '2026-05-01', '2026-05-03', 'Late check-in', $rooms[3]],
+        ['Eko Prasetyo', '089988776655', 'eko.p@perusahaan.com', 'Gedung Cyber Lt. 5', '2026-05-02', '2026-05-05', 'Butuh invoice perusahaan', $rooms[4]]
     ];
 
     $stmt = $db->prepare("INSERT INTO reservations (customer_name, phone, email, address, check_in, check_out, notes, room_id, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'confirmed')");
     
-    foreach ($reservations as $r) {
+    foreach ($reservations as $index => $r) {
         $stmt->execute([
             $r[0], 
             SecurityHelper::encrypt($r[1]), 
@@ -32,14 +34,16 @@ try {
         
         $res_id = $db->lastInsertId();
         
-        // 3. Dummy Payments for some
-        if ($r[0] !== 'Ahmad Rahman') {
-            $amount = $r[0] === 'Budi Santoso' ? '300000' : '500000';
-            $p_stmt = $db->prepare("INSERT INTO payments (reservation_id, amount, method, status, payment_date) VALUES (?, ?, ?, 'paid', DATETIME('now'))");
+        // 3. Dummy Payments for most
+        if ($index < 4) { // First 4 are paid
+            $amounts = ['300000', '500000', '450000', '1500000'];
+            $amount = $amounts[$index] ?? '300000';
+            $p_stmt = $db->prepare("INSERT INTO payments (reservation_id, amount, method, status, payment_date) VALUES (?, ?, ?, 'paid', DATETIME('now', '-$index hours'))");
+            $methods = ['Transfer BCA', 'Transfer Mandiri', 'QRIS', 'Tunai'];
             $p_stmt->execute([
                 $res_id, 
                 SecurityHelper::encrypt($amount), 
-                'Transfer BCA'
+                $methods[$index] ?? 'Tunai'
             ]);
         }
     }
