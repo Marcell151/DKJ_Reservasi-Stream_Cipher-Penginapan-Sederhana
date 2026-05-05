@@ -17,7 +17,7 @@ $data = $db->query($query)->fetchAll(PDO::FETCH_ASSOC);
 
 $encrypted_fields = [
     'reservations' => ['phone', 'email', 'address', 'notes'],
-    'payments' => ['amount']
+    'payments' => [] // ATURAN 1: Nominal Pembayaran sekarang Plaintext
 ];
 $current_encrypted_fields = $encrypted_fields[$selected_table] ?? [];
 ?>
@@ -119,7 +119,11 @@ $current_encrypted_fields = $encrypted_fields[$selected_table] ?? [];
                                 
                                 <?php if($compare_mode && $is_encrypted): ?>
                                     <td class="p-3 border-b border-l border-indigo-100 bg-indigo-50/30 text-sm font-bold text-emerald-700">
-                                        <?= htmlspecialchars((string)SecurityHelper::decrypt($val)) ?>
+                                        <?php 
+                                            // ATURAN 2: Gunakan IP Historis dari kolom entry_ip untuk dekripsi
+                                            $ip_source = ($selected_table === 'reservations') ? ($row['entry_ip'] ?? null) : null;
+                                            echo htmlspecialchars((string)SecurityHelper::decrypt($val, $ip_source)); 
+                                        ?>
                                     </td>
                                 <?php endif; ?>
                             <?php endforeach; ?>

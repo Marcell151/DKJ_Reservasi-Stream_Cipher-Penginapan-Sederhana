@@ -1,21 +1,27 @@
 <?php
-// Handle Actions
 if (isset($_POST['action'])) {
     if ($_POST['action'] === 'add' || $_POST['action'] === 'update') {
-        $phone_enc = SecurityHelper::encrypt($_POST['phone']);
-        $email_enc = SecurityHelper::encrypt($_POST['email']);
-        $address_enc = SecurityHelper::encrypt($_POST['address']);
-        $notes_enc = SecurityHelper::encrypt($_POST['notes']);
+        $current_ip = $_SERVER['SERVER_ADDR'] ?? '127.0.0.1';
+        if ($current_ip === '::1') $current_ip = '127.0.0.1';
+
+        // ATURAN 3: Generate Data Key & Encrypt IP dengan Master Key
+        $phone_enc = SecurityHelper::encryptData($_POST['phone'] ?? '', $current_ip);
+        $email_enc = SecurityHelper::encryptData($_POST['email'] ?? '', $current_ip);
+        $address_enc = SecurityHelper::encryptData($_POST['address'] ?? '', $current_ip);
+        $enc_ip_seed = SecurityHelper::encryptIP($current_ip); // Tier 1: Master Key Tier
+        
+        // ATURAN 2: Notes sekarang Plaintext
+        $notes_raw = $_POST['notes'] ?? '';
 
         if ($_POST['action'] === 'add') {
-            $stmt = $db->prepare("INSERT INTO reservations (customer_name, phone, email, address, check_in, check_out, notes, room_id, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
-            $stmt->execute([$_POST['customer_name'], $phone_enc, $email_enc, $address_enc, $_POST['check_in'], $_POST['check_out'], $notes_enc, $_POST['room_id'], 'confirmed']);
+            $stmt = $db->prepare("INSERT INTO reservations (customer_name, phone, email, address, check_in, check_out, notes, room_id, status, encrypted_ip_seed) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+            $stmt->execute([$_POST['customer_name'], $phone_enc, $email_enc, $address_enc, $_POST['check_in'], $_POST['check_out'], $notes_raw, $_POST['room_id'], 'confirmed', $enc_ip_seed]);
             $db->prepare("UPDATE rooms SET status = 'booked' WHERE id = ?")->execute([$_POST['room_id']]);
-            set_flash_message("Reservasi berhasil disimpan & dienkripsi.");
+            set_flash_message("Reservasi disimpan dengan Two-Tier Key (IP Terenkripsi).");
         } else {
             $stmt = $db->prepare("UPDATE reservations SET customer_name = ?, phone = ?, email = ?, address = ?, check_in = ?, check_out = ?, notes = ?, room_id = ? WHERE id = ?");
-            $stmt->execute([$_POST['customer_name'], $phone_enc, $email_enc, $address_enc, $_POST['check_in'], $_POST['check_out'], $notes_enc, $_POST['room_id'], $_POST['id']]);
-            set_flash_message("Reservasi diperbarui.");
+            $stmt->execute([$_POST['customer_name'], $phone_enc, $email_enc, $address_enc, $_POST['check_in'], $_POST['check_out'], $notes_raw, $_POST['room_id'], $_POST['id']]);
+            set_flash_message("Reservasi diperbarui (Data Key diperbarui).");
         }
     } elseif ($_POST['action'] === 'delete') {
         $r = $db->prepare("SELECT room_id FROM reservations WHERE id = ?");
@@ -35,7 +41,7 @@ $available_rooms = $db->query("SELECT * FROM rooms WHERE status = 'available' OR
 <div class="flex justify-between items-center mb-6">
     <div>
         <h3 class="text-lg font-bold text-gray-800">Manajemen Reservasi</h3>
-        <p class="text-sm text-gray-500">Sistem terenkripsi ChaCha20</p>
+        <p class="text-sm text-gray-500">Arsitektur Keamanan Two-Tier Key</p>
     </div>
     <button onclick="openResModal()" class="btn-primary flex items-center gap-2">
         <i data-lucide="plus" class="w-4 h-4"></i> Reservasi Baru
@@ -50,15 +56,19 @@ $available_rooms = $db->query("SELECT * FROM rooms WHERE status = 'available' OR
                     <th>Pelanggan</th>
                     <th>Periode</th>
                     <th>Kamar</th>
-                    <th>Status Data</th>
+                    <th>Status Tier</th>
                     <th>Aksi</th>
                 </tr>
             </thead>
             <tbody>
                 <?php foreach ($reservations as $res): ?>
+                <?php 
+                    // ATURAN 4: Dekripsi IP dahulu dengan Master Key, baru dekripsi Data
+                    $ip_historis = SecurityHelper::decryptIP($res['encrypted_ip_seed'] ?? '');
+                ?>
                 <tr>
                     <td>
-                        <div class="font-bold text-gray-800"><?= htmlspecialchars($res['customer_name']) ?></div>
+                        <div class="font-bold text-gray-800"><?= htmlspecialchars($res['customer_name'] ?? '') ?></div>
                         <div class="text-[10px] text-gray-400">ID: RES-<?= $res['id'] ?></div>
                     </td>
                     <td class="text-gray-600">
@@ -69,25 +79,25 @@ $available_rooms = $db->query("SELECT * FROM rooms WHERE status = 'available' OR
                         <span class="px-2 py-1 bg-indigo-50 text-indigo-700 rounded text-xs font-bold">No. <?= $res['room_number'] ?></span>
                     </td>
                     <td>
-                        <div class="flex items-center gap-1 text-emerald-600 text-[10px] font-bold">
-                            <i data-lucide="shield-check" class="w-3 h-3"></i> ENCRYPTED
+                        <div class="flex items-center gap-1 text-indigo-600 text-[10px] font-bold">
+                            <i data-lucide="layers" class="w-3 h-3"></i> TWO-TIER KEY
                         </div>
                     </td>
                     <td>
                         <div class="flex items-center gap-2">
                             <button onclick='viewDetail(<?= json_encode($res) ?>, <?= json_encode([
-                                "phone" => SecurityHelper::decrypt($res["phone"]),
-                                "email" => SecurityHelper::decrypt($res["email"]),
-                                "address" => SecurityHelper::decrypt($res["address"]),
-                                "notes" => SecurityHelper::decrypt($res["notes"])
+                                "phone" => SecurityHelper::decryptData($res["phone"] ?? '', $ip_historis),
+                                "email" => SecurityHelper::decryptData($res["email"] ?? '', $ip_historis),
+                                "address" => SecurityHelper::decryptData($res["address"] ?? '', $ip_historis),
+                                "notes" => $res["notes"] // Sekarang Plaintext
                             ]) ?>)' class="p-2 text-blue-400 hover:text-blue-600 bg-blue-50 rounded-lg">
                                 <i data-lucide="eye" class="w-4 h-4"></i>
                             </button>
                             <button onclick='editRes(<?= json_encode($res) ?>, <?= json_encode([
-                                "phone" => SecurityHelper::decrypt($res["phone"]),
-                                "email" => SecurityHelper::decrypt($res["email"]),
-                                "address" => SecurityHelper::decrypt($res["address"]),
-                                "notes" => SecurityHelper::decrypt($res["notes"])
+                                "phone" => SecurityHelper::decryptData($res["phone"] ?? '', $ip_historis),
+                                "email" => SecurityHelper::decryptData($res["email"] ?? '', $ip_historis),
+                                "address" => SecurityHelper::decryptData($res["address"] ?? '', $ip_historis),
+                                "notes" => $res["notes"]
                             ]) ?>)' class="p-2 text-indigo-400 hover:text-indigo-600 bg-indigo-50 rounded-lg">
                                 <i data-lucide="edit-3" class="w-4 h-4"></i>
                             </button>

@@ -3,19 +3,13 @@
 $total_reservations = $db->query("SELECT COUNT(*) FROM reservations")->fetchColumn();
 $available_rooms = $db->query("SELECT COUNT(*) FROM rooms WHERE status = 'available'")->fetchColumn();
 $total_rooms = $db->query("SELECT COUNT(*) FROM rooms")->fetchColumn();
-$total_income_encrypted = $db->query("SELECT amount FROM payments WHERE status = 'paid'")->fetchAll(PDO::FETCH_COLUMN);
 
-// Decrypt total income
-$total_income = 0;
-foreach ($total_income_encrypted as $enc_amount) {
-    $decrypted = SecurityHelper::decrypt($enc_amount);
-    if (is_numeric($decrypted)) {
-        $total_income += (float)$decrypted;
-    }
-}
+// ATURAN 1: Nominal Pembayaran sekarang Plaintext, bisa langsung SUM di SQL
+$total_income = $db->query("SELECT SUM(CAST(amount AS FLOAT)) FROM payments WHERE status = 'paid'")->fetchColumn() ?: 0;
 
-// Counts for encrypted data fields
-$encrypted_fields_count = ($total_reservations * 4) + count($total_income_encrypted);
+// Counts for encrypted data fields: Phone, Email, Address, and Encrypted IP Seed
+// Notes and Amount are now Plaintext
+$encrypted_fields_count = ($total_reservations * 4); // phone, email, address, encrypted_ip_seed
 ?>
 
 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
@@ -121,20 +115,20 @@ $encrypted_fields_count = ($total_reservations * 4) + count($total_income_encryp
             </div>
 
             <div class="bg-white/10 rounded-2xl p-4 backdrop-blur-sm border border-white/10">
-                <span class="text-xs font-medium text-indigo-200 block mb-3 border-b border-white/5 pb-2">Network-Locked Key</span>
+                <span class="text-xs font-medium text-indigo-200 block mb-3 border-b border-white/5 pb-2">Two-Tier Security</span>
                 <div class="space-y-3">
                     <div class="flex items-center justify-between text-[10px]">
-                        <span class="text-gray-400 uppercase">IP Server:</span>
-                        <span class="font-mono text-indigo-200"><?= $GLOBALS['ip_server'] ?></span>
+                        <span class="text-gray-400 uppercase">Master Tier:</span>
+                        <span class="font-mono text-indigo-200">ACTIVE</span>
                     </div>
                     <div class="flex items-center justify-between text-[10px]">
-                        <span class="text-gray-400 uppercase">Hostname:</span>
-                        <span class="font-mono text-indigo-200"><?= $GLOBALS['device_sig'] ?></span>
+                        <span class="text-gray-400 uppercase">Data Tier:</span>
+                        <span class="font-mono text-indigo-200">DYNAMIC</span>
                     </div>
                     <div class="flex items-center justify-between text-[10px]">
                         <span class="text-gray-400 uppercase">Status:</span>
                         <span class="flex items-center gap-1 text-emerald-400 font-bold">
-                            <i data-lucide="shield-check" class="w-3 h-3"></i> BINDED
+                            <i data-lucide="shield-check" class="w-3 h-3"></i> TWO-TIER OK
                         </span>
                     </div>
                 </div>

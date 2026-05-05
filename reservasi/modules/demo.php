@@ -4,17 +4,23 @@ $dec_result = "";
 $input_plaintext = $_POST['input_plaintext'] ?? "";
 $input_ciphertext = $_POST['input_ciphertext'] ?? "";
 
+// Capture current IP for demo purposes
+$current_ip = $_SERVER['SERVER_ADDR'] ?? '127.0.0.1';
+if ($current_ip === '::1') $current_ip = '127.0.0.1';
+
 // Handle Encryption Action
 if (isset($_POST['action']) && $_POST['action'] === 'encrypt') {
-    $enc_result = SecurityHelper::encrypt($input_plaintext);
+    // ATURAN 3: Gunakan Data Key dinamis berbasis IP saat ini
+    $enc_result = SecurityHelper::encryptData($input_plaintext, $current_ip);
 }
 
 // Handle Decryption Action
 if (isset($_POST['action']) && $_POST['action'] === 'decrypt') {
-    $dec_result = SecurityHelper::decrypt($input_ciphertext);
+    // ATURAN 4: Gunakan Data Key dinamis berbasis IP saat ini
+    $dec_result = SecurityHelper::decryptData($input_ciphertext, $current_ip);
 }
 
-$key = SecurityHelper::generateKey();
+$key = SecurityHelper::getDataKey($current_ip);
 ?>
 
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -89,56 +95,60 @@ $key = SecurityHelper::generateKey();
     
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div class="p-4 bg-white/5 rounded-2xl border border-white/10">
-            <div class="text-[10px] font-bold text-gray-400 uppercase mb-2">Stable Server Key (HEX)</div>
+            <div class="text-[10px] font-bold text-gray-400 uppercase mb-2">Dynamic Data Key (HEX)</div>
             <div class="font-mono text-[10px] text-indigo-300 break-all"><?= bin2hex($key) ?></div>
+            <div class="text-[8px] text-indigo-500 mt-1">Generated from SHA256(IP + Secret)</div>
         </div>
         <div class="p-4 bg-white/5 rounded-2xl border border-white/10">
-            <div class="text-[10px] font-bold text-gray-400 uppercase mb-2">Algorithm</div>
+            <div class="text-[10px] font-bold text-gray-400 uppercase mb-2">Two-Tier Algorithm</div>
             <div class="text-sm font-bold text-emerald-400 flex items-center gap-2">
-                <i data-lucide="cpu" class="w-4 h-4"></i> ChaCha20 Stream Cipher
+                <i data-lucide="layers" class="w-4 h-4"></i> ChaCha20 + Network Binding
             </div>
         </div>
         <div class="p-4 bg-white/5 rounded-2xl border border-white/10">
-            <div class="text-[10px] font-bold text-gray-400 uppercase mb-2">Nonce Handling</div>
-            <div class="text-xs text-gray-300">16-byte random IV appended to payload.</div>
+            <div class="text-[10px] font-bold text-gray-400 uppercase mb-2">Master Tier Status</div>
+            <div class="text-xs text-emerald-300 font-bold flex items-center gap-2">
+                <i data-lucide="shield" class="w-3 h-3"></i> Master Secret Locked
+            </div>
          </div>
 
          <!-- NEW: Hybrid Source Panel -->
          <div class="p-4 bg-white/5 rounded-2xl border border-white/10 md:col-span-3">
             <div class="text-[10px] font-bold text-gray-400 uppercase mb-3 flex items-center gap-2 border-b border-white/10 pb-2">
-                <i data-lucide="network" class="w-3 h-3 text-indigo-400"></i> Hybrid Key Derivation Source (Network & Device Binding)
+                <i data-lucide="network" class="w-3 h-3 text-indigo-400"></i> Two-Tier Key Derivation Source (Network Escrow)
             </div>
             <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div class="text-xs">
-                    <span class="text-gray-500 block text-[9px] uppercase">IP Server:</span>
-                    <span class="font-mono text-indigo-300"><?= $GLOBALS['ip_server'] ?? 'N/A' ?></span>
+                    <span class="text-gray-500 block text-[9px] uppercase">Current IP:</span>
+                    <span class="font-mono text-indigo-300"><?= $current_ip ?></span>
                 </div>
                 <div class="text-xs">
-                    <span class="text-gray-500 block text-[9px] uppercase">Hostname:</span>
-                    <span class="font-mono text-indigo-300"><?= $GLOBALS['device_sig'] ?? 'N/A' ?></span>
+                    <span class="text-gray-500 block text-[9px] uppercase">Key Lifetime:</span>
+                    <span class="font-mono text-indigo-300">Memory-Only</span>
                 </div>
                 <div class="text-xs overflow-hidden">
-                    <span class="text-gray-500 block text-[9px] uppercase">User Agent:</span>
-                    <span class="font-mono text-indigo-300 truncate block" title="<?= htmlspecialchars($GLOBALS['user_agent'] ?? '') ?>"><?= substr(htmlspecialchars($GLOBALS['user_agent'] ?? 'CLI'), 0, 15) ?>...</span>
+                    <span class="text-gray-500 block text-[9px] uppercase">Storage Mode:</span>
+                    <span class="font-mono text-indigo-300 truncate block">Two-Tier Cipher</span>
                 </div>
                  <div class="text-xs">
                     <span class="text-gray-500 block text-[9px] uppercase">Master Secret:</span>
-                    <span class="font-mono text-indigo-300">dkj_reservasi_***</span>
+                    <span class="font-mono text-indigo-300">dkj_sederhana_***</span>
                 </div>
             </div>
             <div class="mt-3 text-[9px] text-gray-500 italic">
-                *Key di-generate otomatis dari hash SHA-256 kombinasi 4 faktor di atas.
+                *Data Key tidak disimpan di DB. IP dibungkus Master Key, Data dibungkus Data Key.
             </div>
         </div>
     </div>
 
     <div class="mt-8 pt-8 border-t border-white/10">
         <h4 class="font-bold mb-4 flex items-center gap-2">
-            <i data-lucide="info" class="w-4 h-4"></i> Cara Kerja Simulasi
+            <i data-lucide="info" class="w-4 h-4"></i> Mekanisme Simulasi
         </h4>
         <ol class="text-sm text-gray-400 space-y-3 list-decimal list-inside leading-relaxed">
-            <li><strong>Enkripsi</strong>: Plaintext di-XOR dengan keystream yang dihasilkan dari Key & Nonce. Hasilnya digabung dengan Nonce lalu di-encode ke Base64.</li>
-            <li><strong>Dekripsi</strong>: Data Base64 di-decode, 16 byte pertama diambil sebagai Nonce, sisanya adalah Ciphertext. Keduanya di-XOR kembali dengan Key yang sama untuk mendapatkan teks asli.</li>
+            <li><strong>Master Tier</strong>: `APP_SECRET` digunakan untuk mengunci/membuka identitas jaringan (IP).</li>
+            <li><strong>Data Tier</strong>: Hash dari IP + Secret menghasilkan kunci dinamis untuk data pelanggan.</li>
+            <li><strong>Keamanan</strong>: Jika database bocor, data tetap aman karena IP-nya tersembunyi (Master Tier) dan kuncinya tidak ada di database (Data Tier).</li>
         </ol>
     </div>
 </div>

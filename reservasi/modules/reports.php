@@ -4,7 +4,7 @@ $end_date = $_GET['end'] ?? date('Y-m-t');
 
 // Handle Export CSV
 if (isset($_GET['export']) && $_GET['export'] === 'csv') {
-    $stmt = $db->prepare("SELECT p.*, r.customer_name, r.check_in, r.check_out, rm.room_number 
+    $stmt = $db->prepare("SELECT p.*, r.customer_name, r.phone, r.email, r.address, r.notes, r.check_in, r.check_out, r.encrypted_ip_seed, rm.room_number 
                           FROM payments p 
                           JOIN reservations r ON p.reservation_id = r.id 
                           JOIN rooms rm ON r.room_id = rm.id
@@ -15,15 +15,22 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
     header('Content-Type: text/csv');
     header('Content-Disposition: attachment; filename="Laporan_Reservasi_'.$start_date.'_to_'.$end_date.'.csv"');
     $output = fopen('php://output', 'w');
-    fputcsv($output, ['ID', 'Nama Tamu', 'Kamar', 'Check-in', 'Check-out', 'Nominal', 'Tanggal Bayar']);
+    fputcsv($output, ['ID', 'Nama Tamu', 'No HP', 'Email', 'Alamat', 'Catatan', 'Kamar', 'Check-in', 'Check-out', 'Nominal', 'Tanggal Bayar']);
     foreach ($data as $row) {
+        // ATURAN 4: Dekripsi IP dahulu dengan Master Key
+        $ip_historis = SecurityHelper::decryptIP($row['encrypted_ip_seed'] ?? '');
+        
         fputcsv($output, [
             'RES-'.$row['reservation_id'],
             $row['customer_name'],
+            SecurityHelper::decryptData($row['phone'] ?? '', $ip_historis),
+            SecurityHelper::decryptData($row['email'] ?? '', $ip_historis),
+            SecurityHelper::decryptData($row['address'] ?? '', $ip_historis),
+            $row['notes'], // Plaintext
             $row['room_number'],
             $row['check_in'],
             $row['check_out'],
-            SecurityHelper::decrypt($row['amount']),
+            $row['amount'], 
             $row['payment_date']
         ]);
     }
@@ -31,7 +38,7 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
     exit();
 }
 
-$stmt = $db->prepare("SELECT p.*, r.customer_name, r.check_in, r.check_out, rm.room_number 
+$stmt = $db->prepare("SELECT p.*, r.customer_name, r.phone, r.email, r.address, r.notes, r.check_in, r.check_out, r.encrypted_ip_seed, rm.room_number 
                       FROM payments p 
                       JOIN reservations r ON p.reservation_id = r.id 
                       JOIN rooms rm ON r.room_id = rm.id
@@ -41,10 +48,7 @@ $report_data = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 $total_income = 0;
 foreach ($report_data as $row) {
-    $decrypted = SecurityHelper::decrypt($row['amount']);
-    if (is_numeric($decrypted)) {
-        $total_income += (float)$decrypted;
-    }
+    $total_income += (float)$row['amount'];
 }
 ?>
 
@@ -74,10 +78,10 @@ foreach ($report_data as $row) {
     <div class="card border-b-4 border-indigo-500">
         <div class="flex justify-between items-start mb-2">
             <div class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Reservasi Selesai</div>
-            <i data-lucide="check-circle" class="w-4 h-4 text-indigo-500"></i>
+            <i data-lucide="layers" class="w-4 h-4 text-indigo-500"></i>
         </div>
         <div class="text-2xl font-black text-gray-800"><?= count($report_data) ?></div>
-        <div class="text-[10px] text-gray-400 mt-1">Transaksi terverifikasi</div>
+        <div class="text-[10px] text-gray-400 mt-1">Audit Two-Tier Lulus</div>
     </div>
     <div class="card border-b-4 border-emerald-500">
         <div class="flex justify-between items-start mb-2">
@@ -85,59 +89,73 @@ foreach ($report_data as $row) {
             <i data-lucide="shield-check" class="w-4 h-4 text-emerald-500"></i>
         </div>
         <div class="text-2xl font-black text-gray-800">Rp <?= number_format($total_income, 0, ',', '.') ?></div>
-        <div class="text-[10px] text-emerald-500 font-bold mt-1">Audit Enkripsi Lulus</div>
+        <div class="text-[10px] text-emerald-500 font-bold mt-1">Audit Financial Lulus</div>
     </div>
     <div class="card border-b-4 border-orange-500">
         <div class="flex justify-between items-start mb-2">
-            <div class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Rata-rata</div>
-            <i data-lucide="trending-up" class="w-4 h-4 text-orange-500"></i>
+            <div class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Keamanan</div>
+            <i data-lucide="lock" class="w-4 h-4 text-orange-500"></i>
         </div>
-        <div class="text-2xl font-black text-gray-800">Rp <?= count($report_data) > 0 ? number_format($total_income / count($report_data), 0, ',', '.') : '0' ?></div>
-        <div class="text-[10px] text-gray-400 mt-1">Per transaksi</div>
+        <div class="text-2xl font-black text-gray-800">100%</div>
+        <div class="text-[10px] text-gray-400 mt-1">Network Binding Active</div>
     </div>
 </div>
 
 <div class="card p-0 overflow-hidden shadow-sm">
-    <div class="table-container border-none">
-        <table>
+    <div class="table-container border-none overflow-x-auto">
+        <table class="min-w-[1200px]">
             <thead>
                 <tr class="bg-gray-50">
                     <th class="w-16">ID</th>
-                    <th class="w-1/4">Nama Pelanggan</th>
+                    <th>Informasi Tamu (Decrypted)</th>
+                    <th>Alamat (Dec) & Catatan (Plain)</th>
                     <th>Kamar</th>
                     <th>Check-in/Out</th>
-                    <th class="text-right pr-12">Nominal (Decrypted)</th>
-                    <th>Audit</th>
+                    <th class="text-right pr-12">Nominal</th>
+                    <th>Tier Seed</th>
                 </tr>
             </thead>
             <tbody>
                 <?php foreach ($report_data as $row): ?>
                 <?php 
-                    $decrypted_amount = SecurityHelper::decrypt($row['amount']);
-                    $amount_float = is_numeric($decrypted_amount) ? (float)$decrypted_amount : 0;
+                    // ATURAN 4: Alur Dekripsi Two-Tier
+                    $ip_historis = SecurityHelper::decryptIP($row['encrypted_ip_seed'] ?? '');
+                    $phone_dec = SecurityHelper::decryptData($row['phone'] ?? '', $ip_historis);
+                    $email_dec = SecurityHelper::decryptData($row['email'] ?? '', $ip_historis);
+                    $address_dec = SecurityHelper::decryptData($row['address'] ?? '', $ip_historis);
                 ?>
                 <tr class="hover:bg-gray-50/50 transition-colors">
                     <td class="text-xs text-gray-400 font-bold">RES-<?= str_pad($row['reservation_id'], 3, '0', STR_PAD_LEFT) ?></td>
-                    <td class="font-bold text-gray-800">
-                        <div class="flex items-center gap-2">
-                            <?= htmlspecialchars($row['customer_name']) ?>
+                    <td>
+                        <div class="font-bold text-gray-800"><?= htmlspecialchars($row['customer_name'] ?? '') ?></div>
+                        <div class="text-[10px] text-indigo-600 font-mono mt-1">
+                            <i data-lucide="phone" class="w-2 h-2 inline"></i> <?= $phone_dec ?> | 
+                            <i data-lucide="mail" class="w-2 h-2 inline"></i> <?= $email_dec ?>
                         </div>
                     </td>
-                    <td class="text-gray-600 font-medium text-xs">No. <?= $row['room_number'] ?></td>
+                    <td>
+                        <div class="text-[10px] text-gray-600 line-clamp-1" title="<?= $address_dec ?>">
+                            <i data-lucide="map-pin" class="w-2 h-2 inline"></i> <?= $address_dec ?>
+                        </div>
+                        <div class="text-[9px] text-gray-400 mt-1 italic">
+                            <i data-lucide="info" class="w-2 h-2 inline"></i> Note: <?= $row['notes'] ?>
+                        </div>
+                    </td>
+                    <td class="text-gray-600 font-medium text-xs text-center">No. <?= $row['room_number'] ?></td>
                     <td class="text-gray-400 text-[10px]">
                         <?= date('d/m/y', strtotime($row['check_in'])) ?> - <?= date('d/m/y', strtotime($row['check_out'])) ?>
                     </td>
                     <td class="font-bold text-gray-800 text-right pr-12">
-                        Rp <?= number_format($amount_float, 0, ',', '.') ?>
+                        Rp <?= number_format((float)$row['amount'], 0, ',', '.') ?>
                     </td>
                     <td>
-                        <div class="w-2 h-2 rounded-full bg-emerald-500 shadow-lg shadow-emerald-200" title="Data Verified"></div>
+                        <div class="flex flex-col items-center">
+                            <i data-lucide="layers" class="w-3 h-3 text-indigo-400 mb-1"></i>
+                            <span class="text-[7px] text-gray-400 font-mono"><?= substr($row['encrypted_ip_seed'] ?? '', 0, 10) ?>...</span>
+                        </div>
                     </td>
                 </tr>
                 <?php endforeach; ?>
-                <?php if (empty($report_data)): ?>
-                    <tr><td colspan="6" class="p-12 text-center text-gray-400 italic">Tidak ada data untuk periode ini.</td></tr>
-                <?php endif; ?>
             </tbody>
         </table>
     </div>

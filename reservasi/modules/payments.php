@@ -2,10 +2,11 @@
 // Handle Actions
 if (isset($_POST['action'])) {
     if ($_POST['action'] === 'pay') {
-        $amount_enc = SecurityHelper::encrypt($_POST['amount']);
+        // ATURAN 1: Jangan enkripsi nominal_pembayaran agar bisa dijumlahkan
+        $amount_raw = $_POST['amount']; 
         $stmt = $db->prepare("INSERT INTO payments (reservation_id, amount, method, status, payment_date) VALUES (?, ?, ?, ?, DATETIME('now'))");
-        $stmt->execute([$_POST['reservation_id'], $amount_enc, $_POST['method'], 'paid']);
-        set_flash_message("Pembayaran berhasil dicatat & dienkripsi.");
+        $stmt->execute([$_POST['reservation_id'], $amount_raw, $_POST['method'], 'paid']);
+        set_flash_message("Pembayaran berhasil dicatat sebagai Plaintext (Sesuai Aturan 1).");
     } elseif ($_POST['action'] === 'delete') {
         $stmt = $db->prepare("DELETE FROM payments WHERE id = ?");
         $stmt->execute([$_POST['id']]);
@@ -58,23 +59,16 @@ $payments = $db->query("SELECT p.*, r.customer_name
                     </td>
                     <td>
                         <?php 
-                            $dec_amount = SecurityHelper::decrypt($p['amount']);
-                            $fmt_amount = "Rp " . (is_numeric($dec_amount) ? number_format((float)$dec_amount, 0, ',', '.') : '0');
+                            // ATURAN 1: Data amount sekarang Plaintext
+                            $fmt_amount = "Rp " . (is_numeric($p['amount']) ? number_format((float)$p['amount'], 0, ',', '.') : '0');
                         ?>
-                        <div class="flex flex-col gap-1">
-                            <div class="bg-gray-50 px-3 py-2 rounded-lg border border-gray-100 min-w-[200px]">
-                                <!-- Ciphertext (Full) -->
-                                <div id="enc-<?= $p['id'] ?>" class="font-mono text-[9px] text-red-500 break-all leading-tight select-all cursor-pointer" title="Klik untuk pilih semua">
-                                    <?= $p['amount'] ?>
-                                </div>
-                                <!-- Plaintext (Hidden) -->
-                                <div id="dec-<?= $p['id'] ?>" class="hidden font-bold text-emerald-600 text-sm">
+                        <div class="flex items-center gap-3">
+                            <div class="bg-indigo-50 px-3 py-2 rounded-lg border border-indigo-100 min-w-[140px]">
+                                <span class="font-bold text-indigo-700 text-sm">
                                     <?= $fmt_amount ?>
-                                </div>
+                                </span>
                             </div>
-                            <button onclick="toggleNominal(<?= $p['id'] ?>)" class="text-[9px] font-bold text-indigo-500 hover:text-indigo-700 flex items-center gap-1 transition-all">
-                                <i id="icon-<?= $p['id'] ?>" data-lucide="eye" class="w-3 h-3"></i> Toggle Plaintext
-                            </button>
+                            <div class="text-[10px] text-gray-400 italic font-medium">Plaintext Data</div>
                         </div>
                     </td>
                     <td><span class="text-xs px-2 py-1 bg-blue-50 text-blue-700 rounded-md font-bold"><?= $p['method'] ?></span></td>
@@ -96,14 +90,14 @@ $payments = $db->query("SELECT p.*, r.customer_name
     </div>
 </div>
 
-<div class="card bg-orange-50 border-orange-100 flex items-start gap-4 p-6">
-    <div class="p-3 bg-orange-500 rounded-xl text-white shadow-lg shadow-orange-100">
-        <i data-lucide="shield-alert" class="w-6 h-6"></i>
+<div class="card bg-indigo-50 border-indigo-100 flex items-start gap-4 p-6">
+    <div class="p-3 bg-indigo-500 rounded-xl text-white shadow-lg shadow-indigo-100">
+        <i data-lucide="calculator" class="w-6 h-6"></i>
     </div>
     <div>
-        <h4 class="text-orange-900 font-bold mb-1">Keamanan Finansial Terverifikasi</h4>
-        <p class="text-sm text-orange-700 leading-relaxed">
-            Data nominal di atas tersimpan dalam database sebagai <strong>Ciphertext (Base64)</strong> yang tidak terbaca. Sistem melakukan dekripsi secara otomatis di sisi server menggunakan <em>Server-Side Key</em> agar Anda tetap dapat melihat data asli di Web.
+        <h4 class="text-indigo-900 font-bold mb-1">Audit Keuangan Plaintext (Aturan 1)</h4>
+        <p class="text-sm text-indigo-700 leading-relaxed">
+            Sesuai <strong>Aturan 1</strong>, data nominal di atas disimpan sebagai <strong>Plaintext</strong> agar sistem dapat melakukan fungsi agregasi (SUM/AVG) secara akurat. Meskipun demikian, data identitas pembayar di modul lain tetap terlindungi dengan arsitektur <strong>Two-Tier Key</strong>.
         </p>
     </div>
 </div>

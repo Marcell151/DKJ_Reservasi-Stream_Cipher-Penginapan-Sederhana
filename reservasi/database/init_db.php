@@ -41,9 +41,10 @@ try {
         address TEXT,
         check_in DATE,
         check_out DATE,
-        notes TEXT,
+        notes TEXT, -- ATURAN 2: Sekarang Plaintext
         room_id INTEGER,
         status TEXT DEFAULT 'pending',
+        encrypted_ip_seed TEXT, -- ATURAN 1 & 2: IP Terbungkus Master Key
         FOREIGN KEY(room_id) REFERENCES rooms(id)
     )");
 
