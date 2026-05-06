@@ -1,15 +1,18 @@
 <?php
 // Handle Actions
 if (isset($_POST['action'])) {
+    $current_ip = SecurityHelper::getUserIP();
+    $enc_ip_seed = SecurityHelper::encryptIP($current_ip);
+
     if ($_POST['action'] === 'add' || $_POST['action'] === 'update') {
-        $deposit_enc = SecurityHelper::encrypt($_POST['deposit']);
-        $catatan_enc = SecurityHelper::encrypt($_POST['catatan_jaminan']);
+        $deposit_enc = SecurityHelper::encryptData($_POST['deposit'], $current_ip);
+        $catatan_enc = SecurityHelper::encryptData($_POST['catatan_jaminan'], $current_ip);
 
         if ($_POST['action'] === 'add') {
-            $stmt = $db->prepare("INSERT INTO rentals (pelanggan_id, kendaraan_id, tanggal_sewa, tanggal_kembali, durasi, deposit, catatan_jaminan, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+            $stmt = $db->prepare("INSERT INTO rentals (pelanggan_id, kendaraan_id, tanggal_sewa, tanggal_kembali, durasi, deposit, catatan_jaminan, status, encrypted_ip_seed) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
             $stmt->execute([
                 $_POST['pelanggan_id'], $_POST['kendaraan_id'], $_POST['tanggal_sewa'], 
-                $_POST['tanggal_kembali'], $_POST['durasi'], $deposit_enc, $catatan_enc, 'berjalan'
+                $_POST['tanggal_kembali'], $_POST['durasi'], $deposit_enc, $catatan_enc, 'berjalan', $enc_ip_seed
             ]);
             $db->prepare("UPDATE vehicles SET status = 'disewa' WHERE id = ?")->execute([$_POST['kendaraan_id']]);
             set_flash_message("Transaksi rental berhasil disimpan & dienkripsi.");
@@ -24,10 +27,10 @@ if (isset($_POST['action'])) {
                 $db->prepare("UPDATE vehicles SET status = 'disewa' WHERE id = ?")->execute([$_POST['kendaraan_id']]);
             }
 
-            $stmt = $db->prepare("UPDATE rentals SET pelanggan_id = ?, kendaraan_id = ?, tanggal_sewa = ?, tanggal_kembali = ?, durasi = ?, deposit = ?, catatan_jaminan = ? WHERE id = ?");
+            $stmt = $db->prepare("UPDATE rentals SET pelanggan_id = ?, kendaraan_id = ?, tanggal_sewa = ?, tanggal_kembali = ?, durasi = ?, deposit = ?, catatan_jaminan = ?, encrypted_ip_seed = ? WHERE id = ?");
             $stmt->execute([
                 $_POST['pelanggan_id'], $_POST['kendaraan_id'], $_POST['tanggal_sewa'], 
-                $_POST['tanggal_kembali'], $_POST['durasi'], $deposit_enc, $catatan_enc, $_POST['id']
+                $_POST['tanggal_kembali'], $_POST['durasi'], $deposit_enc, $catatan_enc, $enc_ip_seed, $_POST['id']
             ]);
             set_flash_message("Transaksi rental diperbarui.");
         }
@@ -70,51 +73,61 @@ $available_vehicles = $db->query("SELECT * FROM vehicles WHERE status = 'tersedi
             <thead>
                 <tr>
                     <th>Pelanggan</th>
+                    <th>Data Terenkripsi (Deposit/Jaminan)</th>
                     <th>Kendaraan</th>
-                    <th>Periode</th>
-                    <th>Status Data</th>
+                    <th>Periode & Status Keamanan</th>
                     <th>Aksi</th>
                 </tr>
             </thead>
             <tbody>
                 <?php foreach ($rentals as $res): ?>
+                <?php 
+                    $ip_historis = SecurityHelper::decryptIP($res['encrypted_ip_seed'] ?? '');
+                    $deposit_dec = SecurityHelper::decryptData($res['deposit'], $ip_historis);
+                    $jaminan_dec = SecurityHelper::decryptData($res['catatan_jaminan'], $ip_historis);
+                ?>
                 <tr>
                     <td>
                         <div class="font-bold text-gray-800"><?= htmlspecialchars($res['nama_pelanggan']) ?></div>
                         <div class="text-[10px] text-gray-400">TRX-<?= str_pad($res['id'], 4, '0', STR_PAD_LEFT) ?></div>
                     </td>
                     <td>
-                        <div class="font-semibold text-gray-700"><?= $res['nama_kendaraan'] ?></div>
-                        <span class="px-2 py-1 bg-indigo-50 text-indigo-700 rounded text-xs font-bold"><?= $res['plat_nomor'] ?></span>
-                    </td>
-                    <td class="text-gray-600">
-                        <div class="text-xs font-medium"><?= date('d M Y', strtotime($res['tanggal_sewa'])) ?> s/d</div>
-                        <div class="text-xs font-medium"><?= date('d M Y', strtotime($res['tanggal_kembali'])) ?> (<?= $res['durasi'] ?> hari)</div>
+                        <div class="space-y-1">
+                            <div class="flex items-center gap-2">
+                                <span class="text-[9px] font-bold text-indigo-500 uppercase">Depo:</span>
+                                <div class="font-mono text-[9px] text-red-400 truncate max-w-[120px]" title="<?= $res['deposit'] ?>"><?= $res['deposit'] ?></div>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <span class="text-[9px] font-bold text-indigo-500 uppercase">Jam:</span>
+                                <div class="font-mono text-[9px] text-red-400 truncate max-w-[120px]" title="<?= $res['catatan_jaminan'] ?>"><?= $res['catatan_jaminan'] ?></div>
+                            </div>
+                        </div>
                     </td>
                     <td>
-                        <div class="flex items-center gap-1 text-emerald-600 text-[10px] font-bold mb-1">
-                            <i data-lucide="shield-check" class="w-3 h-3"></i> ENCRYPTED
+                        <div class="font-semibold text-gray-700 text-sm"><?= $res['nama_kendaraan'] ?></div>
+                        <span class="px-2 py-1 bg-indigo-50 text-indigo-700 rounded text-[10px] font-bold"><?= $res['plat_nomor'] ?></span>
+                    </td>
+                    <td>
+                        <div class="text-xs font-medium text-gray-600"><?= date('d M Y', strtotime($res['tanggal_sewa'])) ?> - <?= date('d M Y', strtotime($res['tanggal_kembali'])) ?></div>
+                        <div class="flex items-center gap-1 text-emerald-600 text-[8px] font-bold mt-1">
+                            <i data-lucide="shield-check" class="w-2.5 h-2.5"></i> TIER-2 BOUND (IP: <?= $ip_historis ?>)
                         </div>
-                        <span class="badge-status <?= $res['status'] === 'berjalan' ? 'badge-warning' : 'badge-success' ?>">
-                            <?= ucfirst($res['status']) ?>
-                        </span>
                     </td>
                     <td>
                         <div class="flex items-center gap-2">
-                            <button onclick='viewDetail(<?= json_encode($res) ?>, <?= json_encode([
-                                "deposit" => SecurityHelper::decrypt($res["deposit"]),
-                                "catatan_jaminan" => SecurityHelper::decrypt($res["catatan_jaminan"])
-                            ]) ?>)' class="p-2 text-blue-400 hover:text-blue-600 bg-blue-50 rounded-lg" title="Audit Data">
-                                <i data-lucide="eye" class="w-4 h-4"></i>
-                            </button>
-                            <?php if($res['status'] === 'berjalan'): ?>
                             <button onclick='editRental(<?= json_encode($res) ?>, <?= json_encode([
-                                "deposit" => SecurityHelper::decrypt($res["deposit"]),
-                                "catatan_jaminan" => SecurityHelper::decrypt($res["catatan_jaminan"])
+                                "deposit" => $deposit_dec,
+                                "catatan_jaminan" => $jaminan_dec
                             ]) ?>)' class="p-2 text-indigo-400 hover:text-indigo-600 bg-indigo-50 rounded-lg">
                                 <i data-lucide="edit-3" class="w-4 h-4"></i>
                             </button>
-                            <?php endif; ?>
+                            <form method="POST" class="inline" onsubmit="return confirm('Hapus transaksi ini?')">
+                                <input type="hidden" name="action" value="delete">
+                                <input type="hidden" name="id" value="<?= $res['id'] ?>">
+                                <button type="submit" class="p-2 text-red-400 hover:text-red-600 bg-red-50 rounded-lg">
+                                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                </button>
+                            </form>
                         </div>
                     </td>
                 </tr>
@@ -185,29 +198,6 @@ $available_vehicles = $db->query("SELECT * FROM vehicles WHERE status = 'tersedi
     </div>
 </div>
 
-<!-- Modal Detail Audit -->
-<div id="detailModal" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[210] p-6">
-    <div class="bg-white rounded-[2rem] p-8 w-full max-w-3xl shadow-2xl overflow-y-auto max-h-[90vh]">
-        <div class="flex justify-between items-center mb-6">
-            <h3 class="text-xl font-bold">Audit Enkripsi Data Rental</h3>
-            <button onclick="document.getElementById('detailModal').classList.add('hidden')" class="text-gray-400 hover:text-gray-600">
-                <i data-lucide="x" class="w-6 h-6"></i>
-            </button>
-        </div>
-        
-        <div class="space-y-6">
-            <div class="grid grid-cols-2 gap-4 text-xs font-bold uppercase tracking-widest text-gray-400">
-                <div>Data Terenkripsi (DB)</div>
-                <div>Data Terdekripsi (UI)</div>
-            </div>
-
-            <div id="auditContent" class="space-y-4">
-                <!-- Dynamic Content -->
-            </div>
-        </div>
-    </div>
-</div>
-
 <script>
     function calculateDuration() {
         const start = document.getElementById('rentalSewa').value;
@@ -254,26 +244,5 @@ $available_vehicles = $db->query("SELECT * FROM vehicles WHERE status = 'tersedi
         document.getElementById('rentalJaminan').value = dec.catatan_jaminan;
     }
 
-    function viewDetail(res, dec) {
-        const modal = document.getElementById('detailModal');
-        const content = document.getElementById('auditContent');
-        modal.classList.remove('hidden');
-        
-        const fields = [
-            { label: 'Deposit', enc: res.deposit, dec: 'Rp ' + dec.deposit },
-            { label: 'Catatan Jaminan', enc: res.catatan_jaminan, dec: dec.catatan_jaminan }
-        ];
-
-        content.innerHTML = fields.map(f => `
-            <div class="p-4 bg-gray-50 rounded-2xl border border-gray-100">
-                <div class="text-[10px] font-bold text-indigo-600 mb-2 uppercase">${f.label}</div>
-                <div class="grid grid-cols-2 gap-4">
-                    <div class="font-mono text-[10px] text-red-500 break-all bg-white p-2 rounded-lg border border-red-100">${f.enc}</div>
-                    <div class="font-mono text-sm text-emerald-600 break-all bg-white p-2 rounded-lg border border-emerald-100 font-bold">${f.dec}</div>
-                </div>
-            </div>
-        `).join('');
-        
-        lucide.createIcons();
-    }
+    lucide.createIcons();
 </script>

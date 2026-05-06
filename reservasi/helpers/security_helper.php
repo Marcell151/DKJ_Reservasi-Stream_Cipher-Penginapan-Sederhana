@@ -87,5 +87,35 @@ class SecurityHelper {
     public static function verifyPassword($password, $hash) {
         return password_verify($password, $hash);
     }
+
+    /**
+     * DYNAMIC IPv4 CAPTURE
+     * Mendeteksi IPv4 asli dari client/user secara real-time
+     */
+    public static function getUserIP() {
+        $ip = '127.0.0.1'; // Fallback
+        
+        if (!empty($_SERVER['HTTP_CLIENT_IP'])) {
+            $ip = $_SERVER['HTTP_CLIENT_IP'];
+        } elseif (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
+            // Bisa berupa list IP (proxy), ambil yang pertama
+            $ip_list = explode(',', $_SERVER['HTTP_X_FORWARDED_FOR']);
+            $ip = trim($ip_list[0]);
+        } elseif (!empty($_SERVER['REMOTE_ADDR'])) {
+            $ip = $_SERVER['REMOTE_ADDR'];
+        }
+        
+        // Konversi IPv6 loopback ke IPv4
+        if ($ip === '::1') $ip = '127.0.0.1';
+        
+        // Validasi IPv4 (Hanya mengizinkan format IPv4 sesuai instruksi dosen)
+        if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
+            return $ip;
+        }
+        
+        // Jika bukan IPv4 valid (misal IPv6 lain), fallback ke 127.0.0.1 atau biarkan apa adanya?
+        // Instruksi minta prioritas IPv4.
+        return $ip; 
+    }
 }
 ?>

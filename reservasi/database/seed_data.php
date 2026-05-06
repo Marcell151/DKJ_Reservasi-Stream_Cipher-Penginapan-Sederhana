@@ -6,57 +6,55 @@ try {
     $db = new PDO("sqlite:" . DB_PATH);
     $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-    // 1. Get Room IDs
-    $rooms = $db->query("SELECT id FROM rooms")->fetchAll(PDO::FETCH_COLUMN);
-    if (empty($rooms)) die("Kamar belum ada.");
+    // Clear existing data for fresh seed
+    $db->exec("DELETE FROM reservations");
+    $db->exec("DELETE FROM rooms");
+    $db->exec("DELETE FROM sqlite_sequence WHERE name IN ('reservations', 'rooms')");
 
-    // 2. Dummy Reservations
-    $reservations = [
-        ['Budi Santoso', '081234567890', 'budi@gmail.com', 'Jl. Merdeka No. 10, Jakarta', '2026-04-25', '2026-04-27', 'Bawa selimut extra', $rooms[0]],
-        ['Siti Nurhaliza', '085678901234', 'siti@yahoo.com', 'Jl. Melati No. 5, Bandung', '2026-04-26', '2026-04-28', '-', $rooms[1]],
-        ['Ahmad Rahman', '087712345678', 'ahmad@outlook.com', 'Jl. Anggrek No. 2, Surabaya', '2026-04-27', '2026-04-30', 'Kamar non-smoking', $rooms[2]],
-        ['Dewi Lestari', '081122334455', 'dewi.l@gmail.com', 'Jl. Thamrin No. 8, Jakarta', '2026-05-01', '2026-05-03', 'Late check-in', $rooms[3]],
-        ['Eko Prasetyo', '089988776655', 'eko.p@perusahaan.com', 'Gedung Cyber Lt. 5, Kuningan', '2026-05-02', '2026-05-05', 'Butuh invoice perusahaan', $rooms[4]],
-        ['Andi Wijaya', '081344556677', 'andi.w@gmail.com', 'Perumahan Indah Blok A/12', '2026-05-05', '2026-05-07', 'Dekat lift', $rooms[0]],
-        ['Rina Maria', '085211223344', 'rina@gmail.com', 'Apartemen Sudirman Park', '2026-05-06', '2026-05-08', 'Lantai tinggi', $rooms[1]],
-        ['Hendra Kurnia', '081955667788', 'hendra@kurnia.co.id', 'Jl. Gatot Subroto Kav. 23', '2026-05-07', '2026-05-10', '-', $rooms[2]]
+    // 1. Seed Rooms
+    $rooms = [
+        ['101', 'Superior', 500000],
+        ['102', 'Superior', 500000],
+        ['201', 'Deluxe', 850000],
+        ['202', 'Deluxe', 850000],
+        ['301', 'Suite', 1500000],
     ];
 
-    $current_ip = '127.0.0.1'; // Standar untuk data awal
+    $stmt_room = $db->prepare("INSERT INTO rooms (room_number, type, price, status) VALUES (?, ?, ?, 'available')");
+    foreach ($rooms as $r) {
+        $stmt_room->execute($r);
+    }
+    $room_ids = $db->query("SELECT id FROM rooms")->fetchAll(PDO::FETCH_COLUMN);
+
+    // 2. Seed Reservations with DIFFERENT IP SEEDS to demonstrate dynamic encryption
+    $reservations = [
+        ['Andi Wijaya', '08123456789', 'andi@gmail.com', 'Jl. Merdeka No. 10, Jakarta', '2026-05-01', '2026-05-03', 'Deposit Lunas', $room_ids[0], '127.0.0.1'],
+        ['Budi Santoso', '08567890123', 'budi.s@yahoo.com', 'Gg. Kelinci No. 5, Bandung', '2026-05-02', '2026-05-05', 'Minta sarapan pagi', $room_ids[1], '192.168.1.15'],
+        ['Citra Lestari', '08771122334', 'citra_l@hotmail.com', 'Apartemen Sudirman Park, Jakarta', '2026-05-05', '2026-05-07', '-', $room_ids[2], '110.12.34.56'],
+        ['Dedi Kurniawan', '08139988776', 'dedi.k@perusahaan.co.id', 'Perumahan Elit No. 12, Surabaya', '2026-05-10', '2026-05-12', 'Late check-in', $room_ids[3], '202.45.67.89'],
+        ['Eka Putri', '08224455667', 'eka.putri@univ.ac.id', 'Kos Hijau, Yogyakarta', '2026-05-15', '2026-05-20', 'Jaminan KTP', $room_ids[4], '10.0.0.5'],
+        ['Faisal Ahmad', '08190011223', 'faisal.a@gmail.com', 'Jl. Malioboro No. 1, Yogyakarta', '2026-05-20', '2026-05-22', 'Check-out jam 1 siang', $room_ids[0], '127.0.0.1'],
+        ['Gita Savitri', '08523344556', 'gita.s@global.com', 'Kemang Village, Jakarta', '2026-05-25', '2026-05-28', 'Bawa anjing kecil', $room_ids[1], '172.16.0.100'],
+        ['Hendra Wijaya', '08998877665', 'hendra.w@outlook.com', 'Jl. Pahlawan No. 9, Semarang', '2026-06-01', '2026-06-03', 'Minta extra bed', $room_ids[2], '110.12.34.56']
+    ];
+
     $stmt = $db->prepare("INSERT INTO reservations (customer_name, phone, email, address, check_in, check_out, notes, room_id, status, encrypted_ip_seed) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'confirmed', ?)");
     
-    foreach ($reservations as $index => $r) {
+    foreach ($reservations as $r) {
+        $simulated_ip = $r[8];
+        $enc_ip_seed = SecurityHelper::encryptIP($simulated_ip);
+        
         $stmt->execute([
             $r[0], 
-            SecurityHelper::encryptData($r[1], $current_ip), 
-            SecurityHelper::encryptData($r[2], $current_ip), 
-            SecurityHelper::encryptData($r[3], $current_ip), 
-            $r[4], $r[5], 
-            $r[6], // ATURAN 2: Notes sekarang Plaintext
-            $r[7],
-            SecurityHelper::encryptIP($current_ip) // Tier 1: Master Key Tier
+            SecurityHelper::encryptData($r[1], $simulated_ip),
+            SecurityHelper::encryptData($r[2], $simulated_ip),
+            SecurityHelper::encryptData($r[3], $simulated_ip),
+            $r[4], $r[5], $r[6], $r[7],
+            $enc_ip_seed
         ]);
-        
-        $res_id = $db->lastInsertId();
-        
-        // 3. Dummy Payments for most
-        if ($index < 6) { // First 6 are paid
-            $amounts = ['300000', '500000', '450000', '1500000', '750000', '1200000'];
-            $amount = $amounts[$index] ?? '300000';
-            $p_stmt = $db->prepare("INSERT INTO payments (reservation_id, amount, method, status, payment_date) VALUES (?, ?, ?, 'paid', DATETIME('now', '-$index hours'))");
-            $methods = ['Transfer BCA', 'Transfer Mandiri', 'QRIS', 'Tunai', 'Transfer BNI', 'QRIS'];
-            $p_stmt->execute([
-                $res_id, 
-                $amount, // ATURAN 1: Data nominal sekarang Plaintext
-                $methods[$index] ?? 'Tunai'
-            ]);
-        }
     }
 
-    // Update room statuses
-    $db->exec("UPDATE rooms SET status = 'booked' WHERE id IN (SELECT room_id FROM reservations)");
-
-    echo "Dummy data inserted successfully!";
+    echo "Reservasi database seeded successfully with multiple IP seeds!";
 
 } catch (PDOException $e) {
     die("Error: " . $e->getMessage());

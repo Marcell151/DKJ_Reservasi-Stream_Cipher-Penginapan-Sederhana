@@ -1,8 +1,7 @@
 <?php
 if (isset($_POST['action'])) {
     if ($_POST['action'] === 'add' || $_POST['action'] === 'update') {
-        $current_ip = $_SERVER['SERVER_ADDR'] ?? '127.0.0.1';
-        if ($current_ip === '::1') $current_ip = '127.0.0.1';
+        $current_ip = SecurityHelper::getUserIP();
 
         // ATURAN 3: Generate Data Key & Encrypt IP dengan Master Key
         $phone_enc = SecurityHelper::encryptData($_POST['phone'] ?? '', $current_ip);
@@ -41,7 +40,7 @@ $available_rooms = $db->query("SELECT * FROM rooms WHERE status = 'available' OR
 <div class="flex justify-between items-center mb-6">
     <div>
         <h3 class="text-lg font-bold text-gray-800">Manajemen Reservasi</h3>
-        <p class="text-sm text-gray-500">Arsitektur Keamanan Two-Tier Key</p>
+        <p class="text-sm text-gray-500">Arsitektur Keamanan Two-Tier Key (Dynamic IP Binding)</p>
     </div>
     <button onclick="openResModal()" class="btn-primary flex items-center gap-2">
         <i data-lucide="plus" class="w-4 h-4"></i> Reservasi Baru
@@ -54,53 +53,79 @@ $available_rooms = $db->query("SELECT * FROM rooms WHERE status = 'available' OR
             <thead>
                 <tr>
                     <th>Pelanggan</th>
-                    <th>Periode</th>
-                    <th>Kamar</th>
-                    <th>Status Tier</th>
+                    <th>Kontak (Ciphertext)</th>
+                    <th>Alamat (Encrypted)</th>
+                    <th>Catatan (Plaintext)</th>
+                    <th>Status Data</th>
                     <th>Aksi</th>
                 </tr>
             </thead>
             <tbody>
                 <?php foreach ($reservations as $res): ?>
                 <?php 
-                    // ATURAN 4: Dekripsi IP dahulu dengan Master Key, baru dekripsi Data
+                    // Dekripsi IP Seed (Tier 1) untuk mendapatkan kunci Tier 2
                     $ip_historis = SecurityHelper::decryptIP($res['encrypted_ip_seed'] ?? '');
+                    
+                    // Dekripsi Data (Tier 2) untuk keperluan edit modal (tetap aman di memory)
+                    $phone_dec = SecurityHelper::decryptData($res['phone'], $ip_historis);
+                    $email_dec = SecurityHelper::decryptData($res['email'], $ip_historis);
+                    $address_dec = SecurityHelper::decryptData($res['address'], $ip_historis);
                 ?>
                 <tr>
                     <td>
-                        <div class="font-bold text-gray-800"><?= htmlspecialchars($res['customer_name'] ?? '') ?></div>
-                        <div class="text-[10px] text-gray-400">ID: RES-<?= $res['id'] ?></div>
-                    </td>
-                    <td class="text-gray-600">
-                        <div class="text-xs font-medium"><?= date('d M Y', strtotime($res['check_in'])) ?></div>
-                        <div class="text-[10px] text-gray-400">s/d <?= date('d M Y', strtotime($res['check_out'])) ?></div>
+                        <div class="font-bold text-gray-800"><?= htmlspecialchars($res['customer_name']) ?></div>
+                        <div class="text-[9px] text-gray-400">Kamar: <?= $res['room_number'] ?></div>
                     </td>
                     <td>
-                        <span class="px-2 py-1 bg-indigo-50 text-indigo-700 rounded text-xs font-bold">No. <?= $res['room_number'] ?></span>
+                        <div class="space-y-1">
+                            <div class="flex items-center gap-2">
+                                <span class="text-[9px] font-bold text-indigo-500 uppercase">HP:</span>
+                                <div class="font-mono text-[9px] text-red-400 truncate max-w-[120px]" title="<?= $res['phone'] ?>"><?= $res['phone'] ?></div>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <span class="text-[9px] font-bold text-indigo-500 uppercase">Mail:</span>
+                                <div class="font-mono text-[9px] text-red-400 truncate max-w-[120px]" title="<?= $res['email'] ?>"><?= $res['email'] ?></div>
+                            </div>
+                        </div>
                     </td>
                     <td>
-                        <div class="flex items-center gap-1 text-indigo-600 text-[10px] font-bold">
-                            <i data-lucide="layers" class="w-3 h-3"></i> TWO-TIER KEY
+                        <div class="font-mono text-[8px] text-gray-400 break-all max-w-[180px]" title="<?= $res['address'] ?>">
+                            <?= $res['address'] ?>
+                        </div>
+                    </td>
+                    <td class="text-[10px] text-gray-500 italic max-w-[150px] truncate" title="<?= htmlspecialchars($res['notes']) ?>">
+                        <?= htmlspecialchars($res['notes']) ?>
+                    </td>
+                    <td>
+                        <div class="flex flex-col gap-1">
+                            <span class="text-[8px] font-bold text-emerald-600 flex items-center gap-1">
+                                <i data-lucide="shield-check" class="w-2.5 h-2.5"></i> TIER-2 ACTIVE
+                            </span>
+                            <span class="text-[7px] text-gray-400 font-mono">IP Binding: <?= $ip_historis ?></span>
                         </div>
                     </td>
                     <td>
                         <div class="flex items-center gap-2">
-                            <button onclick='viewDetail(<?= json_encode($res) ?>, <?= json_encode([
-                                "phone" => SecurityHelper::decryptData($res["phone"] ?? '', $ip_historis),
-                                "email" => SecurityHelper::decryptData($res["email"] ?? '', $ip_historis),
-                                "address" => SecurityHelper::decryptData($res["address"] ?? '', $ip_historis),
-                                "notes" => $res["notes"] // Sekarang Plaintext
-                            ]) ?>)' class="p-2 text-blue-400 hover:text-blue-600 bg-blue-50 rounded-lg">
-                                <i data-lucide="eye" class="w-4 h-4"></i>
-                            </button>
-                            <button onclick='editRes(<?= json_encode($res) ?>, <?= json_encode([
-                                "phone" => SecurityHelper::decryptData($res["phone"] ?? '', $ip_historis),
-                                "email" => SecurityHelper::decryptData($res["email"] ?? '', $ip_historis),
-                                "address" => SecurityHelper::decryptData($res["address"] ?? '', $ip_historis),
+                            <button onclick='editRes(<?= json_encode([
+                                "id" => $res["id"],
+                                "customer_name" => $res["customer_name"],
+                                "phone" => $phone_dec,
+                                "email" => $email_dec,
+                                "address" => $address_dec,
+                                "check_in" => $res["check_in"],
+                                "check_out" => $res["check_out"],
+                                "room_id" => $res["room_id"],
                                 "notes" => $res["notes"]
                             ]) ?>)' class="p-2 text-indigo-400 hover:text-indigo-600 bg-indigo-50 rounded-lg">
                                 <i data-lucide="edit-3" class="w-4 h-4"></i>
                             </button>
+                            <form method="POST" class="inline" onsubmit="return confirm('Hapus reservasi ini?')">
+                                <input type="hidden" name="action" value="delete">
+                                <input type="hidden" name="id" value="<?= $res['id'] ?>">
+                                <button type="submit" class="p-2 text-red-400 hover:text-red-600 bg-red-50 rounded-lg">
+                                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                </button>
+                            </form>
                         </div>
                     </td>
                 </tr>
@@ -158,7 +183,7 @@ $available_rooms = $db->query("SELECT * FROM rooms WHERE status = 'available' OR
             </div>
 
             <div class="form-group">
-                <label class="flex items-center gap-2">Catatan <span class="badge-encrypted">ChaCha20</span></label>
+                <label>Catatan (Plaintext)</label>
                 <input type="text" name="notes" id="resNotes" class="form-control">
             </div>
 
@@ -167,29 +192,6 @@ $available_rooms = $db->query("SELECT * FROM rooms WHERE status = 'available' OR
                 <button type="submit" class="flex-1 py-3 bg-[#1a237e] text-white font-bold rounded-xl">Simpan & Enkripsi</button>
             </div>
         </form>
-    </div>
-</div>
-
-<!-- Modal Detail Audit -->
-<div id="detailModal" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[210] p-6">
-    <div class="bg-white rounded-[2rem] p-8 w-full max-w-3xl shadow-2xl overflow-y-auto max-h-[90vh]">
-        <div class="flex justify-between items-center mb-6">
-            <h3 class="text-xl font-bold">Audit Enkripsi Data</h3>
-            <button onclick="document.getElementById('detailModal').classList.add('hidden')" class="text-gray-400 hover:text-gray-600">
-                <i data-lucide="x" class="w-6 h-6"></i>
-            </button>
-        </div>
-        
-        <div class="space-y-6">
-            <div class="grid grid-cols-2 gap-4 text-xs font-bold uppercase tracking-widest text-gray-400">
-                <div>Data Terenkripsi (DB)</div>
-                <div>Data Terdekripsi (UI)</div>
-            </div>
-
-            <div id="auditContent" class="space-y-4">
-                <!-- Dynamic Content -->
-            </div>
-        </div>
     </div>
 </div>
 
@@ -204,50 +206,29 @@ $available_rooms = $db->query("SELECT * FROM rooms WHERE status = 'available' OR
         document.getElementById('resEmail').value = '';
         document.getElementById('resAddress').value = '';
         document.getElementById('resNotes').value = '';
+        document.getElementById('resIn').value = '';
+        document.getElementById('resOut').value = '';
     }
 
     function closeResModal() {
         document.getElementById('resModal').classList.add('hidden');
     }
 
-    function editRes(res, dec) {
+    function editRes(res) {
         document.getElementById('resModal').classList.remove('hidden');
         document.getElementById('resModalTitle').innerText = 'Edit Reservasi';
         document.getElementById('resAction').value = 'update';
         
         document.getElementById('resId').value = res.id;
         document.getElementById('resName').value = res.customer_name;
-        document.getElementById('resPhone').value = dec.phone;
-        document.getElementById('resEmail').value = dec.email;
-        document.getElementById('resAddress').value = dec.address;
+        document.getElementById('resPhone').value = res.phone;
+        document.getElementById('resEmail').value = res.email;
+        document.getElementById('resAddress').value = res.address;
         document.getElementById('resIn').value = res.check_in;
         document.getElementById('resOut').value = res.check_out;
-        document.getElementById('resNotes').value = dec.notes;
+        document.getElementById('resNotes').value = res.notes;
         document.getElementById('resRoom').value = res.room_id;
     }
 
-    function viewDetail(res, dec) {
-        const modal = document.getElementById('detailModal');
-        const content = document.getElementById('auditContent');
-        modal.classList.remove('hidden');
-        
-        const fields = [
-            { label: 'Nomor HP', enc: res.phone, dec: dec.phone },
-            { label: 'Email', enc: res.email, dec: dec.email },
-            { label: 'Alamat', enc: res.address, dec: dec.address },
-            { label: 'Catatan', enc: res.notes, dec: dec.notes }
-        ];
-
-        content.innerHTML = fields.map(f => `
-            <div class="p-4 bg-gray-50 rounded-2xl border border-gray-100">
-                <div class="text-[10px] font-bold text-indigo-600 mb-2 uppercase">${f.label}</div>
-                <div class="grid grid-cols-2 gap-4">
-                    <div class="font-mono text-[10px] text-red-500 break-all bg-white p-2 rounded-lg border border-red-100">${f.enc}</div>
-                    <div class="font-mono text-sm text-emerald-600 break-all bg-white p-2 rounded-lg border border-emerald-100 font-bold">${f.dec}</div>
-                </div>
-            </div>
-        `).join('');
-        
-        lucide.createIcons();
-    }
+    lucide.createIcons();
 </script>

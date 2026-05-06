@@ -1,17 +1,22 @@
 <?php
 // Handle Payment Status Update
 if (isset($_POST['action']) && $_POST['action'] === 'pay') {
-    $enc_amount = SecurityHelper::encrypt($_POST['amount']);
-    $stmt = $db->prepare("UPDATE payments SET nominal_pembayaran = ?, metode = ?, status = 'lunas', payment_date = DATETIME('now') WHERE id = ?");
-    $stmt->execute([$enc_amount, $_POST['method'], $_POST['id']]);
+    $current_ip = SecurityHelper::getUserIP();
+    $enc_ip_seed = SecurityHelper::encryptIP($current_ip);
+    $enc_amount = SecurityHelper::encryptData($_POST['amount'], $current_ip);
+    
+    $stmt = $db->prepare("UPDATE payments SET nominal_pembayaran = ?, metode = ?, status = 'lunas', payment_date = DATETIME('now'), encrypted_ip_seed = ? WHERE id = ?");
+    $stmt->execute([$enc_amount, $_POST['method'], $enc_ip_seed, $_POST['id']]);
     set_flash_message("Pembayaran berhasil diproses dan dienkripsi.");
     redirect("?page=payments");
 }
 
 // Ensure every rental has a payment record (lazy initialize)
-$rentals_without_payment = $db->query("SELECT id FROM rentals WHERE id NOT IN (SELECT transaksi_id FROM payments)")->fetchAll(PDO::FETCH_COLUMN);
-foreach ($rentals_without_payment as $r_id) {
-    $db->prepare("INSERT INTO payments (transaksi_id, nominal_pembayaran, metode, status) VALUES (?, ?, ?, 'pending')")->execute([$r_id, SecurityHelper::encrypt('0'), 'Belum Ditentukan']);
+$rentals_without_payment = $db->query("SELECT id, encrypted_ip_seed FROM rentals WHERE id NOT IN (SELECT transaksi_id FROM payments)")->fetchAll(PDO::FETCH_ASSOC);
+foreach ($rentals_without_payment as $r) {
+    $current_ip = SecurityHelper::getUserIP();
+    $enc_ip_seed = SecurityHelper::encryptIP($current_ip);
+    $db->prepare("INSERT INTO payments (transaksi_id, nominal_pembayaran, metode, status, encrypted_ip_seed) VALUES (?, ?, ?, 'pending', ?)")->execute([$r['id'], SecurityHelper::encryptData('0', $current_ip), 'Belum Ditentukan', $enc_ip_seed]);
 }
 
 $payments = $db->query("
@@ -47,7 +52,8 @@ $payments = $db->query("
             <tbody>
                 <?php foreach ($payments as $pay): 
                     $total_tagihan = $pay['durasi'] * $pay['tarif_harian'];
-                    $decrypted_amount = SecurityHelper::decrypt($pay['nominal_pembayaran']);
+                    $ip_historis = SecurityHelper::decryptIP($pay['encrypted_ip_seed'] ?? '');
+                    $decrypted_amount = SecurityHelper::decryptData($pay['nominal_pembayaran'], $ip_historis);
                 ?>
                 <tr>
                     <td>
@@ -61,10 +67,10 @@ $payments = $db->query("
                     <td class="font-bold text-gray-800">Rp <?= number_format($total_tagihan, 0, ',', '.') ?></td>
                     <td>
                         <?php if ($pay['status'] === 'lunas'): ?>
-                            <div class="font-mono text-[10px] text-red-500 bg-red-50 p-1 rounded mb-1 break-all select-all">
+                            <div class="font-mono text-[9px] text-red-400 bg-red-50 p-1 rounded mb-1 break-all select-all truncate max-w-[150px]" title="<?= $pay['nominal_pembayaran'] ?>">
                                 <?= $pay['nominal_pembayaran'] ?>
                             </div>
-                            <div class="text-xs font-bold text-emerald-600">Rp <?= number_format((float)$decrypted_amount, 0, ',', '.') ?></div>
+                            <div class="text-[9px] text-gray-400 italic">Encrypted Value</div>
                         <?php else: ?>
                             <span class="text-xs text-gray-400 italic">Belum bayar</span>
                         <?php endif; ?>

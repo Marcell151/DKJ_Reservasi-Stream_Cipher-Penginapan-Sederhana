@@ -1,25 +1,29 @@
 <?php
 // Handle Add/Edit/Delete
 if (isset($_POST['action'])) {
+    $current_ip = SecurityHelper::getUserIP();
+    $enc_ip_seed = SecurityHelper::encryptIP($current_ip);
+
     if ($_POST['action'] === 'add') {
-        $stmt = $db->prepare("INSERT INTO customers (nama_pelanggan, nomor_hp, email, alamat, nomor_identitas) VALUES (?, ?, ?, ?, ?)");
+        $stmt = $db->prepare("INSERT INTO customers (nama_pelanggan, nomor_hp, email, alamat, nomor_identitas, encrypted_ip_seed) VALUES (?, ?, ?, ?, ?, ?)");
         $stmt->execute([
             $_POST['nama_pelanggan'], 
-            SecurityHelper::encrypt($_POST['nomor_hp']), 
-            SecurityHelper::encrypt($_POST['email']), 
-            SecurityHelper::encrypt($_POST['alamat']), 
-            SecurityHelper::encrypt($_POST['nomor_identitas'])
+            SecurityHelper::encryptData($_POST['nomor_hp'], $current_ip), 
+            SecurityHelper::encryptData($_POST['email'], $current_ip), 
+            SecurityHelper::encryptData($_POST['alamat'], $current_ip), 
+            SecurityHelper::encryptData($_POST['nomor_identitas'], $current_ip),
+            $enc_ip_seed
         ]);
         set_flash_message("Pelanggan berhasil ditambahkan.");
     } elseif ($_POST['action'] === 'update') {
-        // Fetch current to keep old encrypted value if not changed (simplified here: require re-entry if changed, or we just encrypt what's posted)
-        $stmt = $db->prepare("UPDATE customers SET nama_pelanggan = ?, nomor_hp = ?, email = ?, alamat = ?, nomor_identitas = ? WHERE id = ?");
+        $stmt = $db->prepare("UPDATE customers SET nama_pelanggan = ?, nomor_hp = ?, email = ?, alamat = ?, nomor_identitas = ?, encrypted_ip_seed = ? WHERE id = ?");
         $stmt->execute([
             $_POST['nama_pelanggan'], 
-            SecurityHelper::encrypt($_POST['nomor_hp']), 
-            SecurityHelper::encrypt($_POST['email']), 
-            SecurityHelper::encrypt($_POST['alamat']), 
-            SecurityHelper::encrypt($_POST['nomor_identitas']), 
+            SecurityHelper::encryptData($_POST['nomor_hp'], $current_ip), 
+            SecurityHelper::encryptData($_POST['email'], $current_ip), 
+            SecurityHelper::encryptData($_POST['alamat'], $current_ip), 
+            SecurityHelper::encryptData($_POST['nomor_identitas'], $current_ip), 
+            $enc_ip_seed,
             $_POST['id']
         ]);
         set_flash_message("Data pelanggan berhasil diperbarui.");
@@ -49,36 +53,58 @@ $customers = $db->query("SELECT * FROM customers ORDER BY nama_pelanggan ASC")->
         <table>
             <thead>
                 <tr>
-                    <th>Nama Pelanggan</th>
-                    <th>No. HP <span class="badge-encrypted ml-1" title="Encrypted in DB"><i data-lucide="lock" class="w-3 h-3 inline"></i></span></th>
-                    <th>Email <span class="badge-encrypted ml-1" title="Encrypted in DB"><i data-lucide="lock" class="w-3 h-3 inline"></i></span></th>
-                    <th>Alamat <span class="badge-encrypted ml-1" title="Encrypted in DB"><i data-lucide="lock" class="w-3 h-3 inline"></i></span></th>
-                    <th>No. Identitas <span class="badge-encrypted ml-1" title="Encrypted in DB"><i data-lucide="lock" class="w-3 h-3 inline"></i></span></th>
+                    <th>Pelanggan</th>
+                    <th>Data Terenkripsi (Phone/Email)</th>
+                    <th>Alamat & ID (Ciphertext)</th>
                     <th>Aksi</th>
                 </tr>
             </thead>
             <tbody>
                 <?php foreach ($customers as $c): 
-                    $hp = SecurityHelper::decrypt($c['nomor_hp']);
-                    $email = SecurityHelper::decrypt($c['email']);
-                    $alamat = SecurityHelper::decrypt($c['alamat']);
-                    $identitas = SecurityHelper::decrypt($c['nomor_identitas']);
+                    $ip_historis = SecurityHelper::decryptIP($c['encrypted_ip_seed'] ?? '');
+                    $hp_dec = SecurityHelper::decryptData($c['nomor_hp'], $ip_historis);
+                    $email_dec = SecurityHelper::decryptData($c['email'], $ip_historis);
+                    $alamat_dec = SecurityHelper::decryptData($c['alamat'], $ip_historis);
+                    $identitas_dec = SecurityHelper::decryptData($c['nomor_identitas'], $ip_historis);
                 ?>
                 <tr>
-                    <td class="font-bold text-gray-700"><?= $c['nama_pelanggan'] ?></td>
-                    <td><div class="font-mono text-sm bg-gray-50 px-2 py-1 rounded text-gray-600 border border-gray-100"><?= $hp ?: 'N/A' ?></div></td>
-                    <td><div class="text-sm"><?= $email ?: 'N/A' ?></div></td>
-                    <td><div class="text-sm truncate max-w-xs" title="<?= htmlspecialchars($alamat) ?>"><?= $alamat ?: 'N/A' ?></div></td>
-                    <td><div class="font-mono text-sm bg-gray-50 px-2 py-1 rounded text-gray-600 border border-gray-100"><?= $identitas ?: 'N/A' ?></div></td>
+                    <td class="font-bold text-gray-700">
+                        <?= $c['nama_pelanggan'] ?>
+                        <div class="text-[9px] text-gray-400">ID: CUST-<?= str_pad($c['id'], 4, '0', STR_PAD_LEFT) ?></div>
+                    </td>
+                    <td>
+                        <div class="space-y-1">
+                            <div class="flex items-center gap-2">
+                                <span class="text-[9px] font-bold text-indigo-500 uppercase">HP:</span>
+                                <div class="font-mono text-[9px] text-red-400 truncate max-w-[120px]" title="<?= $c['nomor_hp'] ?>"><?= $c['nomor_hp'] ?></div>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <span class="text-[9px] font-bold text-indigo-500 uppercase">Mail:</span>
+                                <div class="font-mono text-[9px] text-red-400 truncate max-w-[120px]" title="<?= $c['email'] ?>"><?= $c['email'] ?></div>
+                            </div>
+                        </div>
+                    </td>
+                    <td>
+                        <div class="space-y-1">
+                             <div class="flex items-center gap-2">
+                                <span class="text-[8px] font-bold text-gray-400 uppercase">ADDR:</span>
+                                <div class="font-mono text-[8px] text-gray-400 truncate max-w-[150px]" title="<?= $c['alamat'] ?>"><?= $c['alamat'] ?></div>
+                             </div>
+                             <div class="flex items-center gap-2">
+                                <span class="text-[8px] font-bold text-gray-400 uppercase">IDN:</span>
+                                <div class="font-mono text-[8px] text-gray-400 truncate max-w-[150px]" title="<?= $c['nomor_identitas'] ?>"><?= $c['nomor_identitas'] ?></div>
+                             </div>
+                        </div>
+                    </td>
                     <td>
                         <div class="flex items-center gap-2">
                             <button onclick='editCustomer(<?= json_encode([
                                 "id" => $c["id"],
                                 "nama_pelanggan" => $c["nama_pelanggan"],
-                                "nomor_hp" => $hp,
-                                "email" => $email,
-                                "alamat" => $alamat,
-                                "nomor_identitas" => $identitas
+                                "nomor_hp" => $hp_dec,
+                                "email" => $email_dec,
+                                "alamat" => $alamat_dec,
+                                "nomor_identitas" => $identitas_dec
                             ]) ?>)' class="p-2 text-indigo-400 hover:text-indigo-600 bg-indigo-50 rounded-lg">
                                 <i data-lucide="edit-3" class="w-4 h-4"></i>
                             </button>

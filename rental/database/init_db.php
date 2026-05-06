@@ -43,7 +43,8 @@ try {
         nomor_hp TEXT,
         email TEXT,
         alamat TEXT,
-        nomor_identitas TEXT
+        nomor_identitas TEXT,
+        encrypted_ip_seed TEXT
     )");
 
     // 4. Create Rentals Table
@@ -57,6 +58,7 @@ try {
         deposit TEXT,
         catatan_jaminan TEXT,
         status TEXT DEFAULT 'berjalan',
+        encrypted_ip_seed TEXT,
         FOREIGN KEY(pelanggan_id) REFERENCES customers(id),
         FOREIGN KEY(kendaraan_id) REFERENCES vehicles(id)
     )");
@@ -69,6 +71,7 @@ try {
         metode TEXT,
         status TEXT DEFAULT 'pending',
         payment_date DATETIME,
+        encrypted_ip_seed TEXT,
         FOREIGN KEY(transaksi_id) REFERENCES rentals(id)
     )");
 
