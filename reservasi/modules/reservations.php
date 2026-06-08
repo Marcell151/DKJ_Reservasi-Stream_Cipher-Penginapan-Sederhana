@@ -74,34 +74,34 @@ $available_rooms = $db->query("SELECT * FROM rooms WHERE status = 'available' OR
                 <tr>
                     <td>
                         <div class="font-bold text-gray-800"><?= htmlspecialchars($res['customer_name']) ?></div>
-                        <div class="text-[9px] text-gray-400">Kamar: <?= $res['room_number'] ?></div>
+                        <div class="text-xs text-gray-500 mt-1">Kamar: <?= $res['room_number'] ?></div>
                     </td>
                     <td>
                         <div class="space-y-1">
                             <div class="flex items-center gap-2">
-                                <span class="text-[9px] font-bold text-indigo-500 uppercase">HP:</span>
-                                <div class="font-mono text-[9px] text-red-400 truncate max-w-[120px]" title="<?= $res['phone'] ?>"><?= $res['phone'] ?></div>
+                                <span class="text-xs font-bold text-indigo-600 uppercase">HP:</span>
+                                <div class="font-mono text-xs text-red-500 truncate max-w-[150px]" title="<?= $res['phone'] ?>"><?= $res['phone'] ?></div>
                             </div>
                             <div class="flex items-center gap-2">
-                                <span class="text-[9px] font-bold text-indigo-500 uppercase">Mail:</span>
-                                <div class="font-mono text-[9px] text-red-400 truncate max-w-[120px]" title="<?= $res['email'] ?>"><?= $res['email'] ?></div>
+                                <span class="text-xs font-bold text-indigo-600 uppercase">Mail:</span>
+                                <div class="font-mono text-xs text-red-500 truncate max-w-[150px]" title="<?= $res['email'] ?>"><?= $res['email'] ?></div>
                             </div>
                         </div>
                     </td>
                     <td>
-                        <div class="font-mono text-[8px] text-gray-400 break-all max-w-[180px]" title="<?= $res['address'] ?>">
+                        <div class="font-mono text-xs text-gray-500 break-all max-w-[200px]" title="<?= $res['address'] ?>">
                             <?= $res['address'] ?>
                         </div>
                     </td>
-                    <td class="text-[10px] text-gray-500 italic max-w-[150px] truncate" title="<?= htmlspecialchars($res['notes']) ?>">
+                    <td class="text-xs text-gray-600 italic max-w-[200px] truncate" title="<?= htmlspecialchars($res['notes']) ?>">
                         <?= htmlspecialchars($res['notes']) ?>
                     </td>
                     <td>
                         <div class="flex flex-col gap-1">
-                            <span class="text-[8px] font-bold text-emerald-600 flex items-center gap-1">
-                                <i data-lucide="shield-check" class="w-2.5 h-2.5"></i> TIER-2 ACTIVE
+                            <span class="text-xs font-bold text-emerald-600 flex items-center gap-1">
+                                <i data-lucide="shield-check" class="w-3 h-3"></i> TIER-2 ACTIVE
                             </span>
-                            <span class="text-[7px] text-gray-400 font-mono">IP Binding: <?= $ip_historis ?></span>
+                            <span class="text-xs text-gray-500 font-mono mt-1">IP Binding: <?= $ip_historis ?></span>
                         </div>
                     </td>
                     <td>

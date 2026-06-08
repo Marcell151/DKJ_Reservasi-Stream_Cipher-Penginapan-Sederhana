@@ -50,6 +50,23 @@ $raw_reservations = $db->query("SELECT * FROM reservations ORDER BY id DESC LIMI
                     <?= $enc_result ?>
                 </div>
                 <p class="text-[10px] text-indigo-400 mt-2 italic">*Klik untuk menyalin data ini ke box dekripsi</p>
+                
+                <?php
+                $raw_bytes = base64_decode($enc_result);
+                $ext = function_exists('sodium_crypto_stream_chacha20_xor') ? 'Sodium' : 'OpenSSL';
+                $nonce_len = ($ext === 'Sodium') ? 8 : 16;
+                $nonce = substr($raw_bytes, 0, $nonce_len);
+                $ciphertext = substr($raw_bytes, $nonce_len);
+                $data_key = SecurityHelper::getDataKey($current_ip);
+                ?>
+                <div class="mt-4 p-4 bg-indigo-900 rounded-xl border border-indigo-800 text-indigo-100 shadow-inner">
+                    <h4 class="text-[10px] font-bold uppercase tracking-wider mb-3 text-indigo-300 border-b border-indigo-700 pb-2">Detail Kriptografi (Simulasi)</h4>
+                    <div class="space-y-2 font-mono text-[10px]">
+                        <div class="flex gap-2"><strong class="text-indigo-400 shrink-0 w-20">Nonce:</strong> <span class="break-all text-amber-300"><?= bin2hex($nonce) ?></span></div>
+                        <div class="flex gap-2"><strong class="text-indigo-400 shrink-0 w-20">Ciphertext:</strong> <span class="break-all text-red-300"><?= bin2hex($ciphertext) ?></span></div>
+                        <div class="flex gap-2"><strong class="text-indigo-400 shrink-0 w-20">Data Key:</strong> <span class="break-all text-emerald-300"><?= bin2hex($data_key) ?></span></div>
+                    </div>
+                </div>
             </div>
         <?php endif; ?>
     </div>
@@ -79,6 +96,23 @@ $raw_reservations = $db->query("SELECT * FROM reservations ORDER BY id DESC LIMI
                 <label class="text-[10px] font-bold text-emerald-400 uppercase tracking-widest mb-2 block">Hasil Teks Asli</label>
                 <div class="font-bold text-lg text-emerald-700 break-all bg-white p-3 rounded-lg border border-emerald-200">
                     <?= htmlspecialchars($dec_result) ?>
+                </div>
+
+                <?php
+                $raw_bytes = base64_decode($input_ciphertext);
+                $ext = function_exists('sodium_crypto_stream_chacha20_xor') ? 'Sodium' : 'OpenSSL';
+                $nonce_len = ($ext === 'Sodium') ? 8 : 16;
+                $nonce = substr($raw_bytes, 0, $nonce_len);
+                $ciphertext = substr($raw_bytes, $nonce_len);
+                $data_key = SecurityHelper::getDataKey($current_ip);
+                ?>
+                <div class="mt-4 p-4 bg-emerald-900 rounded-xl border border-emerald-800 text-emerald-100 shadow-inner">
+                    <h4 class="text-[10px] font-bold uppercase tracking-wider mb-3 text-emerald-300 border-b border-emerald-700 pb-2">Detail Dekripsi (Simulasi)</h4>
+                    <div class="space-y-2 font-mono text-[10px]">
+                        <div class="flex gap-2"><strong class="text-emerald-400 shrink-0 w-20">Nonce:</strong> <span class="break-all text-amber-300"><?= bin2hex($nonce) ?></span></div>
+                        <div class="flex gap-2"><strong class="text-emerald-400 shrink-0 w-20">Ciphertext:</strong> <span class="break-all text-red-300"><?= bin2hex($ciphertext) ?></span></div>
+                        <div class="flex gap-2"><strong class="text-emerald-400 shrink-0 w-20">Data Key:</strong> <span class="break-all text-indigo-300"><?= bin2hex($data_key) ?></span></div>
+                    </div>
                 </div>
             </div>
         <?php endif; ?>

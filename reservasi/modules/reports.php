@@ -128,21 +128,21 @@ foreach ($report_data as $row) {
                     <td class="text-xs text-gray-400 font-bold">RES-<?= str_pad($row['reservation_id'], 3, '0', STR_PAD_LEFT) ?></td>
                     <td>
                         <div class="font-bold text-gray-800"><?= htmlspecialchars($row['customer_name'] ?? '') ?></div>
-                        <div class="text-[10px] text-indigo-600 font-mono mt-1">
-                            <i data-lucide="phone" class="w-2 h-2 inline"></i> <?= $phone_dec ?> | 
-                            <i data-lucide="mail" class="w-2 h-2 inline"></i> <?= $email_dec ?>
+                        <div class="text-sm text-indigo-700 font-medium font-mono mt-1">
+                            <i data-lucide="phone" class="w-3 h-3 inline"></i> <?= $phone_dec ?> | 
+                            <i data-lucide="mail" class="w-3 h-3 inline"></i> <?= $email_dec ?>
                         </div>
                     </td>
                     <td>
-                        <div class="text-[10px] text-gray-600 line-clamp-1" title="<?= $address_dec ?>">
-                            <i data-lucide="map-pin" class="w-2 h-2 inline"></i> <?= $address_dec ?>
+                        <div class="text-sm text-gray-800 line-clamp-2" title="<?= $address_dec ?>">
+                            <i data-lucide="map-pin" class="w-3 h-3 inline text-gray-500"></i> <?= $address_dec ?>
                         </div>
-                        <div class="text-[9px] text-gray-400 mt-1 italic">
-                            <i data-lucide="info" class="w-2 h-2 inline"></i> Note: <?= $row['notes'] ?>
+                        <div class="text-xs text-gray-600 mt-1 italic">
+                            <i data-lucide="info" class="w-3 h-3 inline text-gray-400"></i> Note: <?= $row['notes'] ?>
                         </div>
                     </td>
-                    <td class="text-gray-600 font-medium text-xs text-center">No. <?= $row['room_number'] ?></td>
-                    <td class="text-gray-400 text-[10px]">
+                    <td class="text-gray-800 font-medium text-sm text-center">No. <?= $row['room_number'] ?></td>
+                    <td class="text-gray-600 text-sm">
                         <?= date('d/m/y', strtotime($row['check_in'])) ?> - <?= date('d/m/y', strtotime($row['check_out'])) ?>
                     </td>
                     <td class="font-bold text-gray-800 text-right pr-12">
@@ -150,8 +150,8 @@ foreach ($report_data as $row) {
                     </td>
                     <td>
                         <div class="flex flex-col items-center">
-                            <i data-lucide="layers" class="w-3 h-3 text-indigo-400 mb-1"></i>
-                            <span class="text-[7px] text-gray-400 font-mono"><?= substr($row['encrypted_ip_seed'] ?? '', 0, 10) ?>...</span>
+                            <i data-lucide="layers" class="w-4 h-4 text-indigo-500 mb-1"></i>
+                            <span class="text-xs text-gray-500 font-mono"><?= substr($row['encrypted_ip_seed'] ?? '', 0, 10) ?>...</span>
                         </div>
                     </td>
                 </tr>

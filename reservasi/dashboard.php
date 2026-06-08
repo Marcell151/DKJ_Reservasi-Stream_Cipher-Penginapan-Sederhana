@@ -84,12 +84,11 @@ function is_active($p, $current) {
                             <i data-lucide="zap" class="w-5 h-5"></i> Demo Enkripsi
                         </a>
                     </li>
-                    <!-- Menu Audit disembunyikan sesuai permintaan -->
-                    <!-- <li>
-                        <a href="?page=audit_db" class="<?= is_active('audit_db', $page) ?>">
-                            <i data-lucide="database" class="w-5 h-5 text-indigo-300"></i> Audit Database
+                    <li>
+                        <a href="?page=audit_crypto" class="<?= is_active('audit_crypto', $page) ?>">
+                            <i data-lucide="database" class="w-5 h-5 text-indigo-300"></i> Audit Kriptografi
                         </a>
-                    </li> -->
+                    </li>
                     <li class="mt-4">
                         <a href="?page=logout" class="text-red-300 hover:bg-red-500/20 hover:text-red-200">
                             <i data-lucide="log-out" class="w-5 h-5"></i> Keluar
@@ -112,7 +111,8 @@ function is_active($p, $current) {
                             'payments' => 'Pembayaran',
                             'reports' => 'Laporan',
                             'demo' => 'Demo ChaCha20',
-                            'audit_db' => 'Audit Database SQLite'
+                            'audit_db' => 'Audit Database SQLite',
+                            'audit_crypto' => 'Audit Kriptografi'
                         ];
                         echo $titles[$page] ?? 'Dashboard';
                         ?>
