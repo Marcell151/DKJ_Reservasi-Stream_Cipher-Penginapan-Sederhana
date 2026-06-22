@@ -1,4 +1,7 @@
 <?php
+$is_demo_mode = $_SESSION['demo_ip_mode'] ?? false;
+$current_ip = $is_demo_mode ? '192.168.10.10' : SecurityHelper::getUserIP();
+
 $start_date = $_GET['start'] ?? date('Y-m-01');
 $end_date = $_GET['end'] ?? date('Y-m-t');
 
@@ -13,15 +16,15 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
     $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     header('Content-Type: text/csv');
-    header('Content-Disposition: attachment; filename="Laporan_Reservasi_'.$start_date.'_to_'.$end_date.'.csv"');
+    header('Content-Disposition: attachment; filename="Laporan_Reservasi_' . $start_date . '_to_' . $end_date . '.csv"');
     $output = fopen('php://output', 'w');
     fputcsv($output, ['ID', 'Nama Tamu', 'No HP', 'Email', 'Alamat', 'Catatan', 'Kamar', 'Check-in', 'Check-out', 'Nominal', 'Tanggal Bayar']);
     foreach ($data as $row) {
         // ATURAN 4: Dekripsi IP dahulu dengan Master Key
         $ip_historis = SecurityHelper::decryptIP($row['encrypted_ip_seed'] ?? '');
-        
+
         fputcsv($output, [
-            'RES-'.$row['reservation_id'],
+            'RES-' . $row['reservation_id'],
             $row['customer_name'],
             SecurityHelper::decryptData($row['phone'] ?? '', $ip_historis),
             SecurityHelper::decryptData($row['email'] ?? '', $ip_historis),
@@ -30,7 +33,7 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
             $row['room_number'],
             $row['check_in'],
             $row['check_out'],
-            $row['amount'], 
+            $row['amount'],
             $row['payment_date']
         ]);
     }
@@ -48,7 +51,7 @@ $report_data = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 $total_income = 0;
 foreach ($report_data as $row) {
-    $total_income += (float)$row['amount'];
+    $total_income += (float) $row['amount'];
 }
 ?>
 
@@ -60,14 +63,17 @@ foreach ($report_data as $row) {
             <input type="date" name="start" value="<?= $start_date ?>" class="form-control">
         </div>
         <div class="form-group flex-1 min-w-[180px]">
-            <label class="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-2 block">Sampai Dengan</label>
+            <label class="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-2 block">Sampai
+                Dengan</label>
             <input type="date" name="end" value="<?= $end_date ?>" class="form-control">
         </div>
         <div class="flex gap-2">
-            <button type="submit" class="py-3.5 px-6 bg-[#1a237e] text-white font-bold rounded-xl flex items-center gap-2 hover:bg-indigo-700 transition-all">
+            <button type="submit"
+                class="py-3.5 px-6 bg-[#1a237e] text-white font-bold rounded-xl flex items-center gap-2 hover:bg-indigo-700 transition-all">
                 <i data-lucide="search" class="w-4 h-4"></i> Terapkan
             </button>
-            <a href="?page=reports&start=<?= $start_date ?>&end=<?= $end_date ?>&export=csv" class="py-3.5 px-6 bg-emerald-600 text-white font-bold rounded-xl flex items-center gap-2 hover:bg-emerald-700 transition-all">
+            <a href="?page=reports&start=<?= $start_date ?>&end=<?= $end_date ?>&export=csv"
+                class="py-3.5 px-6 bg-emerald-600 text-white font-bold rounded-xl flex items-center gap-2 hover:bg-emerald-700 transition-all">
                 <i data-lucide="download" class="w-4 h-4"></i> Export CSV
             </a>
         </div>
@@ -117,44 +123,69 @@ foreach ($report_data as $row) {
             </thead>
             <tbody>
                 <?php foreach ($report_data as $row): ?>
-                <?php 
-                    // ATURAN 4: Alur Dekripsi Two-Tier
+                    <?php
+                    // ATURAN 4: Alur Dekripsi Two-Tier dan Strict Location-Based Access
                     $ip_historis = SecurityHelper::decryptIP($row['encrypted_ip_seed'] ?? '');
-                    $phone_dec = SecurityHelper::decryptData($row['phone'] ?? '', $ip_historis);
-                    $email_dec = SecurityHelper::decryptData($row['email'] ?? '', $ip_historis);
-                    $address_dec = SecurityHelper::decryptData($row['address'] ?? '', $ip_historis);
-                ?>
-                <tr class="hover:bg-gray-50/50 transition-colors">
-                    <td class="text-xs text-gray-400 font-bold">RES-<?= str_pad($row['reservation_id'], 3, '0', STR_PAD_LEFT) ?></td>
-                    <td>
-                        <div class="font-bold text-gray-800"><?= htmlspecialchars($row['customer_name'] ?? '') ?></div>
-                        <div class="text-sm text-indigo-700 font-medium font-mono mt-1">
-                            <i data-lucide="phone" class="w-3 h-3 inline"></i> <?= $phone_dec ?> | 
-                            <i data-lucide="mail" class="w-3 h-3 inline"></i> <?= $email_dec ?>
-                        </div>
-                    </td>
-                    <td>
-                        <div class="text-sm text-gray-800 line-clamp-2" title="<?= $address_dec ?>">
-                            <i data-lucide="map-pin" class="w-3 h-3 inline text-gray-500"></i> <?= $address_dec ?>
-                        </div>
-                        <div class="text-xs text-gray-600 mt-1 italic">
-                            <i data-lucide="info" class="w-3 h-3 inline text-gray-400"></i> Note: <?= $row['notes'] ?>
-                        </div>
-                    </td>
-                    <td class="text-gray-800 font-medium text-sm text-center">No. <?= $row['room_number'] ?></td>
-                    <td class="text-gray-600 text-sm">
-                        <?= date('d/m/y', strtotime($row['check_in'])) ?> - <?= date('d/m/y', strtotime($row['check_out'])) ?>
-                    </td>
-                    <td class="font-bold text-gray-800 text-right pr-12">
-                        Rp <?= number_format((float)$row['amount'], 0, ',', '.') ?>
-                    </td>
-                    <td>
-                        <div class="flex flex-col items-center">
-                            <i data-lucide="layers" class="w-4 h-4 text-indigo-500 mb-1"></i>
-                            <span class="text-xs text-gray-500 font-mono"><?= substr($row['encrypted_ip_seed'] ?? '', 0, 10) ?>...</span>
-                        </div>
-                    </td>
-                </tr>
+
+                    if ($current_ip === $ip_historis) {
+                        $phone_dec = SecurityHelper::decryptData($row['phone'] ?? '', $ip_historis);
+                        $email_dec = SecurityHelper::decryptData($row['email'] ?? '', $ip_historis);
+                        $address_dec = SecurityHelper::decryptData($row['address'] ?? '', $ip_historis);
+                        $title_attr = htmlspecialchars($address_dec);
+                    } else {
+                        $locked_msg = '<br><span class="text-red-500 text-xs font-semibold">[Locked: IP Mismatch]</span>';
+                        $phone_dec = htmlspecialchars($row['phone'] ?? '') . $locked_msg;
+                        $email_dec = htmlspecialchars($row['email'] ?? '') . $locked_msg;
+                        $address_dec = htmlspecialchars($row['address'] ?? '') . $locked_msg;
+                        $title_attr = "Access Denied: IP Mismatch";
+                    }
+                    ?>
+                    <tr class="hover:bg-gray-50/50 transition-colors">
+                        <td class="text-xs text-gray-400 font-bold">
+                            RES-<?= str_pad($row['reservation_id'], 3, '0', STR_PAD_LEFT) ?></td>
+                        <td>
+                            <div class="font-bold text-gray-800"><?= htmlspecialchars($row['customer_name'] ?? '') ?></div>
+                            <div class="text-sm text-indigo-700 font-medium font-mono mt-1" style="word-break: break-all;">
+                                <i data-lucide="phone" class="w-3 h-3 inline"></i> <?= $phone_dec ?> |
+                                <i data-lucide="mail" class="w-3 h-3 inline"></i> <?= $email_dec ?>
+                            </div>
+                        </td>
+                        <td>
+                            <div class="text-sm text-gray-800 line-clamp-2" style="word-break: break-all;"
+                                title="<?= $title_attr ?>">
+                                <i data-lucide="map-pin" class="w-3 h-3 inline text-gray-500"></i> <?= $address_dec ?>
+                            </div>
+                            <div class="text-xs text-gray-600 mt-1 italic">
+                                <i data-lucide="info" class="w-3 h-3 inline text-gray-400"></i> Note: <?= $row['notes'] ?>
+                            </div>
+                        </td>
+                        <td class="text-gray-800 font-medium text-sm text-center">No. <?= $row['room_number'] ?></td>
+                        <td class="text-gray-600 text-sm">
+                            <?php 
+                                $ci = new DateTime($row['check_in']);
+                                $co = new DateTime($row['check_out']);
+                                $diff = $ci->diff($co)->days;
+                                if ($diff == 0) $diff = 1;
+                            ?>
+                            <div class="flex flex-col items-start gap-1">
+                                <span><?= date('d M Y', strtotime($row['check_in'])) ?> - <?= date('d M Y', strtotime($row['check_out'])) ?></span>
+                                <span class="text-xs font-bold text-indigo-600">(<?= $diff ?> Malam)</span>
+                                <?php if (strpos($row['notes'] ?? '', '[EXTENDED]') !== false): ?>
+                                    <span class="text-[9px] px-2 py-0.5 bg-blue-100 text-blue-700 font-bold uppercase tracking-widest rounded-md">Extended</span>
+                                <?php endif; ?>
+                            </div>
+                        </td>
+                        <td class="font-bold text-gray-800 text-right pr-12">
+                            Rp <?= number_format((float) $row['amount'], 0, ',', '.') ?>
+                        </td>
+                        <td>
+                            <div class="flex flex-col items-center">
+                                <i data-lucide="layers" class="w-4 h-4 text-indigo-500 mb-1"></i>
+                                <span
+                                    class="text-xs text-gray-500 font-mono"><?= substr($row['encrypted_ip_seed'] ?? '', 0, 10) ?>...</span>
+                            </div>
+                        </td>
+                    </tr>
                 <?php endforeach; ?>
             </tbody>
         </table>

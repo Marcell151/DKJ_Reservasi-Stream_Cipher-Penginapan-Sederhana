@@ -10,6 +10,17 @@ if (!isset($_SESSION['user_id'])) {
 $page = $_GET['page'] ?? 'stats';
 $db = new PDO("sqlite:" . DB_PATH);
 
+// Global Demo Mode Toggle Logic
+if (isset($_GET['demo_mode']) && $_GET['demo_mode'] === 'toggle') {
+    $_SESSION['demo_ip_mode'] = !isset($_SESSION['demo_ip_mode']) || !$_SESSION['demo_ip_mode'];
+    
+    // Build clean URL without demo_mode
+    $query_params = $_GET;
+    unset($query_params['demo_mode']);
+    $redirect_url = '?' . http_build_query($query_params);
+    redirect($redirect_url);
+}
+
 // Logout handling
 if ($page === 'logout') {
     session_destroy();
@@ -121,13 +132,32 @@ function is_active($p, $current) {
                         Selamat datang di sistem manajemen reservasi penginapan
                     </p>
                 </div>
-                <div class="flex items-center gap-4 bg-white px-4 py-2 rounded-2xl shadow-sm border border-gray-100">
-                    <div class="flex flex-col text-right">
-                        <span class="text-sm font-bold text-gray-800 leading-none"><?= $_SESSION['username'] ?></span>
-                        <span class="text-[10px] text-gray-400 font-medium uppercase mt-1 tracking-wider"><?= $_SESSION['role'] ?></span>
+                <div class="flex gap-4">
+                    <?php 
+                    $is_demo_mode = $_SESSION['demo_ip_mode'] ?? false;
+                    // Build query string for the toggle link to maintain current state
+                    $query_params = $_GET;
+                    $query_params['demo_mode'] = 'toggle';
+                    $toggle_url = '?' . http_build_query($query_params);
+                    ?>
+                    <div class="flex flex-col items-end justify-center bg-white px-4 py-2 rounded-2xl shadow-sm border border-gray-100">
+                        <a href="<?= $toggle_url ?>" 
+                           class="py-1.5 px-3 rounded-lg font-bold text-[10px] transition-all flex items-center gap-2 <?= $is_demo_mode ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' : 'bg-gray-100 text-gray-600 hover:bg-gray-200' ?>"
+                           title="Simulasi Demo IP Statis jika di perusahaan">
+                            <i data-lucide="<?= $is_demo_mode ? 'toggle-right' : 'toggle-left' ?>" class="w-3 h-3"></i>
+                            <?= $is_demo_mode ? 'Demo Mode: ON (Static IP)' : 'Demo Mode: OFF (Dynamic IP)' ?>
+                        </a>
+                        <p class="text-[8px] text-gray-400 mt-1">*Simulasi IP Statis (Perusahaan)</p>
                     </div>
-                    <div class="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-100">
-                        <i data-lucide="user" class="w-5 h-5 text-white"></i>
+
+                    <div class="flex items-center gap-4 bg-white px-4 py-2 rounded-2xl shadow-sm border border-gray-100">
+                        <div class="flex flex-col text-right">
+                            <span class="text-sm font-bold text-gray-800 leading-none"><?= $_SESSION['username'] ?></span>
+                            <span class="text-[10px] text-gray-400 font-medium uppercase mt-1 tracking-wider"><?= $_SESSION['role'] ?></span>
+                        </div>
+                        <div class="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-100">
+                            <i data-lucide="user" class="w-5 h-5 text-white"></i>
+                        </div>
                     </div>
                 </div>
             </header>

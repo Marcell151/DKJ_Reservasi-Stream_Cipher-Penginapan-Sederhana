@@ -2,8 +2,9 @@
 // Handle Actions
 if (isset($_POST['action'])) {
     if ($_POST['action'] === 'pay') {
+        // Bersihkan format Rp dan titik
+        $amount_raw = preg_replace('/[^0-9]/', '', $_POST['amount']);
         // ATURAN 1: Jangan enkripsi nominal_pembayaran agar bisa dijumlahkan
-        $amount_raw = $_POST['amount']; 
         $stmt = $db->prepare("INSERT INTO payments (reservation_id, amount, method, status, payment_date) VALUES (?, ?, ?, ?, DATETIME('now'))");
         $stmt->execute([$_POST['reservation_id'], $amount_raw, $_POST['method'], 'paid']);
         set_flash_message("Pembayaran berhasil dicatat sebagai Plaintext (Sesuai Aturan 1).");
@@ -15,16 +16,17 @@ if (isset($_POST['action'])) {
     redirect("?page=payments");
 }
 
-$pending_payments = $db->query("SELECT r.id, r.customer_name, rm.price, rm.room_number 
+$pending_payments = $db->query("SELECT r.id, r.customer_name, r.amount as res_amount, rm.price, rm.room_number 
                                 FROM reservations r 
                                 JOIN rooms rm ON r.room_id = rm.id 
                                 LEFT JOIN payments p ON r.id = p.reservation_id 
                                 WHERE p.id IS NULL")->fetchAll(PDO::FETCH_ASSOC);
 
-$payments = $db->query("SELECT p.*, r.customer_name 
-                        FROM payments p 
-                        JOIN reservations r ON p.reservation_id = r.id 
-                        ORDER BY p.payment_date DESC")->fetchAll(PDO::FETCH_ASSOC);
+$all_transactions = $db->query("SELECT r.id as reservation_id, r.customer_name, rm.price, p.id as payment_id, p.amount, p.method, p.status, p.payment_date 
+                                FROM reservations r 
+                                JOIN rooms rm ON r.room_id = rm.id 
+                                LEFT JOIN payments p ON r.id = p.reservation_id 
+                                ORDER BY p.payment_date DESC, r.id DESC")->fetchAll(PDO::FETCH_ASSOC);
 ?>
 
 <div class="flex justify-between items-center mb-6">
@@ -51,16 +53,17 @@ $payments = $db->query("SELECT p.*, r.customer_name
                 </tr>
             </thead>
             <tbody>
-                <?php foreach ($payments as $p): ?>
-                <tr>
+                <?php foreach ($all_transactions as $p): ?>
+                <tr class="<?= !$p['payment_id'] ? 'bg-amber-50/30' : '' ?>">
                     <td>
                         <div class="font-bold text-gray-800"><?= htmlspecialchars($p['customer_name']) ?></div>
-                        <div class="text-[10px] text-gray-400">REF: PY-<?= $p['id'] ?></div>
+                        <div class="text-[10px] text-gray-400">REF: <?= $p['payment_id'] ? 'PY-'.$p['payment_id'] : 'RES-'.$p['reservation_id'] ?></div>
                     </td>
                     <td>
                         <?php 
                             // ATURAN 1: Data amount sekarang Plaintext
-                            $fmt_amount = "Rp " . (is_numeric($p['amount']) ? number_format((float)$p['amount'], 0, ',', '.') : '0');
+                            $amount_val = $p['payment_id'] ? $p['amount'] : $p['price'];
+                            $fmt_amount = "Rp " . (is_numeric($amount_val) ? number_format((float)$amount_val, 0, ',', '.') : '0');
                         ?>
                         <div class="flex items-center gap-3">
                             <div class="bg-indigo-50 px-3 py-2 rounded-lg border border-indigo-100 min-w-[140px]">
@@ -68,20 +71,40 @@ $payments = $db->query("SELECT p.*, r.customer_name
                                     <?= $fmt_amount ?>
                                 </span>
                             </div>
-                            <div class="text-[10px] text-gray-400 italic font-medium">Plaintext Data</div>
+                            <div class="text-[10px] text-gray-400 italic font-medium"><?= $p['payment_id'] ? 'Plaintext Data' : 'Estimasi (Kamar)' ?></div>
                         </div>
                     </td>
-                    <td><span class="text-xs px-2 py-1 bg-blue-50 text-blue-700 rounded-md font-bold"><?= $p['method'] ?></span></td>
-                    <td><span class="badge-status badge-success">Selesai</span></td>
-                    <td class="text-gray-500 text-xs"><?= date('d/m/Y H:i', strtotime($p['payment_date'])) ?></td>
                     <td>
-                        <form method="POST" class="inline" onsubmit="return confirm('Hapus record pembayaran ini?')">
-                            <input type="hidden" name="action" value="delete">
-                            <input type="hidden" name="id" value="<?= $p['id'] ?>">
-                            <button type="submit" class="p-2 text-red-400 hover:text-red-600 bg-red-50 rounded-lg">
-                                <i data-lucide="trash-2" class="w-4 h-4"></i>
+                        <?php if ($p['payment_id']): ?>
+                            <span class="text-xs px-2 py-1 bg-blue-50 text-blue-700 rounded-md font-bold"><?= $p['method'] ?></span>
+                        <?php else: ?>
+                            <span class="text-xs px-2 py-1 text-gray-400 font-bold">-</span>
+                        <?php endif; ?>
+                    </td>
+                    <td>
+                        <?php if ($p['payment_id']): ?>
+                            <span class="text-[10px] uppercase tracking-widest font-bold px-2 py-1 bg-emerald-100 text-emerald-700 rounded">Selesai</span>
+                        <?php else: ?>
+                            <span class="text-[10px] uppercase tracking-widest font-bold px-2 py-1 bg-amber-100 text-amber-700 rounded">Belum Bayar</span>
+                        <?php endif; ?>
+                    </td>
+                    <td class="text-gray-500 text-xs">
+                        <?= $p['payment_id'] ? date('d/m/Y H:i', strtotime($p['payment_date'])) : '-' ?>
+                    </td>
+                    <td>
+                        <?php if ($p['payment_id']): ?>
+                            <form method="POST" class="inline" onsubmit="return confirm('Hapus record pembayaran ini?')">
+                                <input type="hidden" name="action" value="delete">
+                                <input type="hidden" name="id" value="<?= $p['payment_id'] ?>">
+                                <button type="submit" class="p-2 text-red-400 hover:text-red-600 bg-red-50 hover:bg-red-100 rounded-lg" title="Hapus Pembayaran">
+                                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                </button>
+                            </form>
+                        <?php else: ?>
+                            <button onclick="document.getElementById('addPaymentModal').classList.toggle('hidden'); const sel = document.querySelector('select[name=reservation_id]'); sel.value='<?= $p['reservation_id'] ?>'; sel.dispatchEvent(new Event('change'));" class="p-2 text-emerald-600 hover:text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-lg border border-emerald-200" title="Bayar Sekarang">
+                                <i data-lucide="check" class="w-4 h-4"></i>
                             </button>
-                        </form>
+                        <?php endif; ?>
                     </td>
                 </tr>
                 <?php endforeach; ?>
@@ -115,18 +138,23 @@ $payments = $db->query("SELECT p.*, r.customer_name
             <input type="hidden" name="action" value="pay">
             <div class="form-group">
                 <label>Pilih Reservasi Aktif</label>
-                <select name="reservation_id" class="form-control" required>
+                <select name="reservation_id" id="payReservationId" class="form-control" required onchange="updatePaymentAmount()">
+                    <option value="" disabled selected>-- Pilih Reservasi --</option>
                     <?php if (empty($pending_payments)): ?>
                         <option disabled>Tidak ada tagihan tertunda</option>
                     <?php endif; ?>
                     <?php foreach ($pending_payments as $pp): ?>
-                        <option value="<?= $pp['id'] ?>"><?= $pp['customer_name'] ?> (Kamar <?= $pp['room_number'] ?>)</option>
+                        <?php $amt = $pp['res_amount'] ?? $pp['price']; ?>
+                        <option value="<?= $pp['id'] ?>" data-amount="<?= $amt ?>">
+                            <?= $pp['customer_name'] ?> (Kamar <?= $pp['room_number'] ?>)
+                        </option>
                     <?php endforeach; ?>
                 </select>
             </div>
             <div class="form-group">
-                <label>Nominal Pembayaran (Rp)</label>
-                <input type="number" name="amount" class="form-control" placeholder="Contoh: 500000" required>
+                <label>Nominal Pembayaran (Rp) - Otomatis</label>
+                <input type="text" name="amount" id="payAmount" class="form-control bg-gray-100 font-bold text-indigo-700" required readonly>
+                <p class="text-[10px] text-gray-500 mt-1 italic">Sesuai kalkulasi harga dari Modul Reservasi</p>
             </div>
             <div class="form-group">
                 <label>Metode Pembayaran</label>
@@ -162,6 +190,24 @@ $payments = $db->query("SELECT p.*, r.customer_name
             icon.classList.remove('text-emerald-600');
         }
         lucide.createIcons();
+    }
+
+    function updatePaymentAmount() {
+        const select = document.getElementById('payReservationId');
+        const amountInput = document.getElementById('payAmount');
+        const selectedOption = select.options[select.selectedIndex];
+        
+        if (selectedOption && selectedOption.dataset.amount) {
+            const amt = parseInt(selectedOption.dataset.amount);
+            const formatter = new Intl.NumberFormat('id-ID', {
+                style: 'currency',
+                currency: 'IDR',
+                minimumFractionDigits: 0
+            });
+            amountInput.value = formatter.format(amt);
+        } else {
+            amountInput.value = '';
+        }
     }
 
     lucide.createIcons();

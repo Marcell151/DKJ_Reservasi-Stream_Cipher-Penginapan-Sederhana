@@ -5,7 +5,8 @@ $input_plaintext = $_POST['input_plaintext'] ?? "";
 $input_ciphertext = $_POST['input_ciphertext'] ?? "";
 
 // Capture current IP for demo purposes (DYNAMIC IPv4 CAPTURE)
-$current_ip = SecurityHelper::getUserIP();
+$is_demo_mode = $_SESSION['demo_ip_mode'] ?? false;
+$current_ip = $is_demo_mode ? '192.168.10.10' : SecurityHelper::getUserIP();
 
 // Handle Encryption Action
 if (isset($_POST['action']) && $_POST['action'] === 'encrypt') {
@@ -133,10 +134,10 @@ $raw_reservations = $db->query("SELECT * FROM reservations ORDER BY id DESC LIMI
                 <div class="space-y-2">
                     <div class="flex justify-between text-[10px]">
                         <span class="text-gray-500">Detected IPv4:</span>
-                        <span class="text-indigo-300 font-mono"><?= $current_ip ?></span>
+                        <span class="<?= $is_demo_mode ? 'text-emerald-400' : 'text-indigo-300' ?> font-mono"><?= $current_ip ?> <?= $is_demo_mode ? '(Demo)' : '' ?></span>
                     </div>
                     <div class="text-[8px] text-gray-500 mt-2">
-                        *Diperoleh secara dinamis melalui <code>REMOTE_ADDR</code> atau Proxy Header.
+                        <?= $is_demo_mode ? '*Menggunakan IP statis simulasi (Demo Mode ON).' : '*Diperoleh secara dinamis melalui <code>REMOTE_ADDR</code> atau Proxy Header.' ?>
                     </div>
                 </div>
             </div>
