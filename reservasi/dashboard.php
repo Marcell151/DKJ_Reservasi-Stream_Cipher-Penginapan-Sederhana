@@ -91,6 +91,11 @@ function is_active($p, $current) {
             <div class="mt-auto pt-4 border-t border-white/10">
                 <ul class="sidebar-menu">
                     <li>
+                        <a href="?page=documentation" class="<?= is_active('documentation', $page) ?>">
+                            <i data-lucide="file-text" class="w-5 h-5 text-blue-300"></i> Dokumen Teknikal
+                        </a>
+                    </li>
+                    <li>
                         <a href="?page=demo" class="<?= is_active('demo', $page) ?>">
                             <i data-lucide="zap" class="w-5 h-5"></i> Demo Enkripsi
                         </a>
@@ -121,6 +126,7 @@ function is_active($p, $current) {
                             'reservations' => 'Reservasi',
                             'payments' => 'Pembayaran',
                             'reports' => 'Laporan',
+                            'documentation' => 'Dokumen Teknikal & Arsitektur',
                             'demo' => 'Demo ChaCha20',
                             'audit_db' => 'Audit Database SQLite',
                             'audit_crypto' => 'Audit Kriptografi'

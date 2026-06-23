@@ -1,36 +1,98 @@
-# Ringkasan Sistem: DKJ Reservasi Penginapan Sederhana (Secured with ChaCha20 & Key Escrow)
+# Sistem Manajemen Reservasi Penginapan Sederhana
+**Dokumen Konteks Sistem (System Context & Architecture)**
 
-Dokumen ini berisi konteks lengkap mengenai arsitektur keamanan, logika bisnis, dan pembaruan terakhir dari sistem "DKJ Reservasi". Dokumen ini dapat diberikan kepada AI (Gemini) di masa depan agar AI langsung memahami struktur dan riwayat pekerjaan proyek ini.
+Dokumen ini ditulis secara komprehensif agar AI (seperti Gemini) atau pengembang lanjutan dapat memahami arsitektur, alur logika, dan skema keamanan yang telah diterapkan pada sistem "DKJ Reservasi Penginapan Sederhana". Fokus utama dari penjelasan di bawah ini adalah pada **Sistem Reservasi** dan **Kriptografi Hybrid (ChaCha20 + Key Escrow)**.
 
-## 1. Identitas Proyek
+---
+
+## 1. Identitas & Teknologi Proyek
 - **Nama Proyek:** Sistem Manajemen Reservasi Penginapan Sederhana
-- **Fokus Utama:** Implementasi Kriptografi **ChaCha20** (Stream Cipher) dengan arsitektur **Two-Tier Key Escrow** berbasis *Dynamic IP Binding*.
-- **Tech Stack:** PHP (Native/Procedural), SQLite3 (Database), Tailwind CSS & Lucide Icons (UI/UX).
+- **Tech Stack:** PHP (Native/Procedural), SQLite3 (Database lokal), Tailwind CSS & Lucide Icons (UI/UX).
+- **Fokus Keamanan:** Implementasi **ChaCha20** (Stream Cipher) dengan **Two-Tier Key Escrow** berbasis *Dynamic IP Binding*.
+
+---
 
 ## 2. Arsitektur Keamanan (Two-Tier Key System)
-Sistem ini dirancang untuk melindungi privasi data pelanggan (Nomor HP, Email, Alamat) dengan enkripsi berlapis:
-- **Tier 1 (Master Key):** Sebuah *Static Key* yang di-hash menggunakan SHA-256 dari `MASTER_SECRET` (disimpan di `config.php`). Master Key ini HANYA digunakan untuk mengenkripsi IP Address pelanggan saat mereka melakukan reservasi, lalu menyimpannya ke database di kolom `encrypted_ip_seed`.
-- **Tier 2 (Data Key):** Sebuah *Dynamic Key* yang dihasilkan secara real-time (gabungan dari IP Address asli jaringan pengguna + `MASTER_SECRET`). Data Key ini digunakan untuk mengenkripsi data sensitif pelanggan (`phone`, `email`, `address`).
+Sistem ini menggunakan teknik enkripsi *stream cipher* (ChaCha20) untuk mengamankan data sensitif pengguna dengan dua lapis kunci (Tier 1 dan Tier 2).
 
-**Alur Kerja (Workflow):**
-- **Saat Insert/Simpan:** Sistem menangkap IP pengguna `getUserIP()`, membuat Data Key dari IP tersebut untuk mengenkripsi profil pelanggan, lalu mengenkripsi IP itu sendiri dengan Master Key, dan menyimpan semuanya ke SQLite.
-- **Saat Laporan/Dekripsi:** Sistem membaca `encrypted_ip_seed` dari SQLite, mendekripsinya dengan Master Key untuk mendapatkan IP historis, merakit kembali Data Key dari IP tersebut, lalu mendekripsi data profil pelanggan untuk ditampilkan di layar.
-- **Pemisahan Data:** Data administratif seperti Tanggal Check-in/out, Catatan (Notes), dan Nominal Pembayaran (Amount) dibiarkan **Plaintext** agar tidak mengganggu kecepatan dan logika sistem pelaporan hotel.
+### Konsep Kunci (Keys)
+1. **Tier 1 (Master Key):** 
+   - Bersifat statis.
+   - Dihasilkan dari proses hashing `SHA-256` terhadap `MASTER_SECRET` (didefinisikan di `config.php`).
+   - **Tujuan:** *Hanya* digunakan untuk mengenkripsi IP Address pengguna (disimpan dalam `encrypted_ip_seed`).
+   
+2. **Tier 2 (Data Key):**
+   - Bersifat dinamis (berubah sesuai dengan IP pengguna saat melakukan reservasi).
+   - Dihasilkan secara real-time dari kombinasi IP Address pengguna (`getUserIP()`) + `MASTER_SECRET` yang kemudian di-hash dengan `SHA-256`.
+   - **Tujuan:** Digunakan untuk mengenkripsi dan mendekripsi data sensitif profil pelanggan (seperti `phone`, `email`, dan `address`).
 
-## 3. Struktur Modul Utama
-- `config/config.php`: Konfigurasi database dan penetapan `MASTER_SECRET`.
-- `helpers/security_helper.php`: Otak dari seluruh algoritma kriptografi (Generate Key, Encrypt/Decrypt ChaCha20 via Sodium/OpenSSL, dan penangkap IP Dinamis).
-- `database/init_db.php`: Skrip inisialisasi tabel SQLite (terdapat tabel `users`, `rooms`, `reservations`, `payments`).
-- `modules/reservations.php`: Modul CRUD reservasi (melakukan enkripsi saat data ditambahkan).
-- `modules/reports.php`: Modul laporan dan Export CSV (melakukan dekripsi on-the-fly untuk laporan).
+### Engine Kriptografi (`SecurityHelper` di `helpers/security_helper.php`)
+- **Core Engine:** Menggunakan `sodium_crypto_stream_chacha20_xor` dengan *Nonce* 8 byte. Jika library Sodium tidak tersedia, sistem otomatis *fallback* menggunakan `openssl_encrypt/decrypt` (`chacha20`) dengan *Nonce* 16 byte.
+- Format penyimpanan data dalam database adalah **Base64** dari gabungan `Nonce + Ciphertext` agar aman saat disimpan dalam kolom `TEXT` di SQLite.
+- **Dynamic IPv4 Capture:** Sistem menangkap IP pengguna secara hierarkis (mengutamakan `HTTP_CLIENT_IP`, `HTTP_X_FORWARDED_FOR`, lalu `REMOTE_ADDR`), melakukan fallback jika berupa IPv6 `::1` ke `127.0.0.1`, dan memvalidasinya secara ketat sebagai IPv4.
 
-## 4. Fitur Edukasi & Audit (Pembaruan Terakhir)
-Untuk mendemonstrasikan cara kerja algoritma kepada dosen/penguji, telah dibangun dua alat audit khusus:
-1. **Demo Enkripsi (`demo.php`):** Halaman interaktif untuk mengetikkan teks dan mengubahnya menjadi Ciphertext. Fitur ini telah diperbarui agar menampilkan **Pemecahan Kriptografi** (Byte-packing breakdown), memperlihatkan *Nonce*, *Ciphertext* mentah, dan *Data Key* secara live. Ini juga membuktikan bahwa memasukkan data yang salah ke proses dekripsi Stream Cipher akan menghasilkan karakter acak (*garbled text*).
-2. **Audit Kriptografi (`audit_crypto.php`):** Halaman khusus di sidebar yang mengambil data reservasi langsung dari database dan membedah *Base64* dari `encrypted_ip_seed`. Halaman ini mendeteksi ekstensi kripto (Sodium/OpenSSL), memisahkan *Nonce* (8 atau 16 bytes), membedah *Ciphertext*, memperlihatkan *Master Key* dalam format Hexadecimal, dan mengeksekusi hasil dekripsi akhir.
-3. **Database Browser (Raw SQL):** Memperlihatkan secara transparan bagaimana data di tabel `reservations` disimpan (membedakan mana kolom Plaintext dan mana kolom Ciphertext).
+---
 
-## 5. Penyesuaian Antarmuka (UI/UX) Terakhir
-- Melakukan peningkatan skalabilitas pembacaan (*Readability Improvement*) pada modul Laporan dan Reservasi.
-- Mengubah teks yang ukurannya terlalu kecil (`10px` / `text-[10px]`) menjadi ukuran standar (`text-sm` / `text-xs`).
-- Meningkatkan kontras warna teks dari abu-abu pudar (`text-gray-400`) menjadi abu-abu gelap/hitam (`text-gray-800` / `text-gray-600`) agar data terdekripsi lebih jelas dilihat oleh pengguna.
+## 3. Alur Kerja Reservasi (Reservation Workflow)
+Modul utama berada di `modules/reservations.php`. Berikut adalah alur mendetail dari proses penambahan, penyimpanan, dan perpanjangan (extend) reservasi.
+
+### A. Proses Insert (Tambah Reservasi Baru)
+1. **Capture Input:** Sistem menerima data pelanggan (`customer_name`, `phone`, `email`, `address`), detail pemesanan (`room_id`, `check_in`, `check_out`), dan `notes` dari form modal.
+2. **Key Generation & Encryption:** 
+   - Menangkap IP saat ini (`getUserIP()`).
+   - `phone`, `email`, dan `address` dienkripsi dengan **Data Key** (Tier 2).
+   - IP pengguna itu sendiri dienkripsi dengan **Master Key** (Tier 1) menjadi `encrypted_ip_seed`.
+3. **Pemisahan Plaintext & Ciphertext:**
+   - Kolom kriptografi (Ciphertext): `phone`, `email`, `address`, `encrypted_ip_seed`.
+   - Kolom operasional (Plaintext): `customer_name`, `check_in`, `check_out`, `notes`, `room_id`, `status`, `amount`. *Catatan:* `notes` sengaja dibiarkan plaintext untuk mempercepat pencarian/indexing operasional.
+4. **Validasi & Kalkulasi Logika Bisnis:**
+   - **Validasi Tanggal:** `check_out` harus lebih besar dari `check_in`, dan `check_in` tidak boleh lebih kecil dari hari ini.
+   - **Cek Overlap (Double Booking):** Melakukan query SQLite untuk memastikan tidak ada reservasi berstatus 'Pending' atau 'Active' di rentang `check_in` hingga `check_out` pada `room_id` yang sama.
+   - **Kalkulasi Biaya (`amount`):** `(Durasi malam) x (Harga kamar dari tabel rooms)`. Jika durasi 0, otomatis dianggap 1 malam.
+   - **Penentuan Status:** Jika `check_out` < hari ini: `Completed`. Jika rentang hari ini masuk ke dalam check-in & check-out: `Active`. Lainnya: `Pending`.
+5. **Database Execution:** Insert ke tabel `reservations`, lalu update `status` di tabel `rooms` menjadi `booked`.
+
+### B. Proses Pembacaan & Laporan (Read & Strict Location-Based Access)
+Saat halaman laporan dimuat (`modules/reports.php`):
+1. Data ditarik dari database.
+2. Sistem mengekstrak dan mendekripsi `encrypted_ip_seed` menggunakan **Master Key** (Tier 1) untuk mendapatkan IP historis saat reservasi dibuat.
+3. **STRICT LOCATION-BASED ACCESS (Aturan Dosen):** Sistem membandingkan IP Historis dengan IP Administrator Saat Ini (Current IP).
+   - **Jika SAMA:** IP historis digunakan untuk merekonstruksi **Data Key** (Tier 2). `phone`, `email`, dan `address` didekripsi dengan Data Key tersebut dan ditampilkan.
+   - **Jika BEDA:** Data profil tidak bisa didekripsi, dibiarkan dalam wujud Base64, dan sistem menampilkan label peringatan `[Locked: IP Mismatch]`.
+
+### C. Dilema Hosting & Solusi "Demo Mode"
+Karena aplikasi ini di-hosting dengan IP Publik yang dinamis, logika *Strict Access* di atas bisa mengunci data secara permanen setiap kali IP berubah. 
+**Solusi:** Disediakan fitur **"Demo Mode Toggle"** menggunakan PHP Session.
+- Jika ON: Sistem akan memanipulasi *Current IP* menjadi `192.168.10.10` (mensimulasikan IP LAN statis/whitelisted layaknya jaringan internal hotel).
+- Jika OFF: Sistem membaca IP dinamis asli dari ISP pengguna.
+
+### C. Proses Update/Extend (Perpanjangan Reservasi)
+1. **Validasi Extend:** `check_out` baru harus lebih besar dari `check_out` sebelumnya. Data `check_in` tidak diambil dari input form, melainkan dari data *existing* di database untuk mencegah manipulasi form.
+2. **Cek Overlap Khusus Extend:** Memastikan rentang tanggal perpanjangan tidak bentrok dengan booking tamu lain pada kamar yang sama (mengecualikan ID reservasi yang sedang di-extend).
+3. **Kalkulasi Ulang Amount:** Menghitung kembali total biaya berdasarkan `check_in` asli ke `check_out` yang baru.
+4. **Proteksi Kriptografi Mutlak (Immutability):** Pada saat melakukan *update* atau perpanjangan, kolom terenkripsi (`phone`, `email`, `address`, dan `encrypted_ip_seed`) **SAMA SEKALI TIDAK BOLEH DISENTUH ATAU DIUPDATE**. Hal ini sangat krusial untuk menjaga integritas enkripsi ChaCha20 agar gembok tidak rusak. Yang diupdate HANYA `check_out`, `notes` (ditambahkan flag `[EXTENDED]`), `status`, dan `amount` secara *plaintext*.
+
+### D. Proses Delete (Hapus Reservasi)
+- Sistem mengambil `room_id` dari reservasi.
+- Mengubah status kamar kembali menjadi `available`.
+- Menghapus baris reservasi terkait dari database.
+
+---
+
+## 4. Struktur Database Lengkap (SQLite)
+Semua tabel diinisialisasi melalui `database/init_db.php`.
+* **`rooms`**: `id`, `room_number`, `type`, `price`, `status`.
+* **`users`**: `id`, `username`, `password`, `role`.
+* **`payments`**: `id`, `reservation_id`, `amount_paid`, `payment_date`, `method`.
+* **`reservations`**: 
+  - `id`, `customer_name`, `room_id`, `check_in`, `check_out`, `status`, `notes`, `amount` *(Plaintext)*
+  - `phone`, `email`, `address`, `encrypted_ip_seed` *(Ciphertext - Base64)*
+
+---
+
+## 5. Fitur Edukasi & Audit Tambahan
+Sistem ini dibuat untuk keperluan demonstrasi/akademis, sehingga dilengkapi:
+1. **Demo Enkripsi (`modules/demo.php`):** Halaman interaktif yang memperlihatkan visualisasi cara kerja ChaCha20, menampilkan pemecahan *byte-packing*, Nonce, Data Key, dan hasil ciphertext mentah secara live.
+2. **Audit Kriptografi (`modules/audit_crypto.php`):** Alat pembedah database yang membaca langsung row data, mengekstrak ekstensi yang dipakai (Sodium/OpenSSL), panjang Nonce, dan mendemonstrasikan dekripsi step-by-step.
+
+*(Catatan: Modul dan UI telah menggunakan Tailwind CSS dengan struktur file per modul yang di-include dari `index.php`)*
