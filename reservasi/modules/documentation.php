@@ -114,9 +114,9 @@
             <h1 class="text-3xl font-extrabold text-gray-800 tracking-tight">Dokumen Teknikal & Arsitektur Keamanan</h1>
             <p class="text-sm text-gray-500 mt-2 font-medium">Spesifikasi Sistem Manajemen Reservasi Penginapan Sederhana (V2.0)</p>
         </div>
-        <button onclick="window.print()" class="py-3 px-6 bg-[#1a237e] hover:bg-indigo-800 text-white font-bold rounded-xl flex items-center gap-2 transition-all shadow-md shrink-0">
-            <i data-lucide="printer" class="w-5 h-5"></i> Export PDF Resmi
-        </button>
+        <a href="dokumen/Dokumen_Teknikal_Reservasi_ChaCha20.pdf" target="_blank" class="py-3 px-6 bg-[#1a237e] hover:bg-indigo-800 text-white font-bold rounded-xl flex items-center gap-2 transition-all shadow-md shrink-0">
+            <i data-lucide="download" class="w-5 h-5"></i> Unduh PDF Dokumen
+        </a>
     </div>
 
     <div class="space-y-12 text-gray-700 leading-relaxed">
